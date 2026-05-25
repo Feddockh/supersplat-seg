@@ -82,6 +82,31 @@ class ViewCube extends Container {
             pz: circle(b, true, 'Z')
         };
 
+        // Update colors and labels when Z-up is toggled
+        // World Y = data Z (blue) and world Z = data Y (green) in Z-up mode
+        const setZUp = (zUp: boolean) => {
+            const yColor = zUp ? b : g;
+            const zColor = zUp ? g : b;
+            const yLabel = zUp ? 'Z' : 'Y';
+            const zLabel = zUp ? 'Y' : 'Z';
+
+            (shapes.py.children[0] as SVGCircleElement).setAttribute('fill', yColor);
+            (shapes.py.children[0] as SVGCircleElement).setAttribute('stroke', yColor);
+            (shapes.py.children[1] as SVGTextElement).textContent = yLabel;
+
+            (shapes.pz.children[0] as SVGCircleElement).setAttribute('fill', zColor);
+            (shapes.pz.children[0] as SVGCircleElement).setAttribute('stroke', zColor);
+            (shapes.pz.children[1] as SVGTextElement).textContent = zLabel;
+
+            (shapes.ny.children[0] as SVGCircleElement).setAttribute('stroke', yColor);
+            (shapes.nz.children[0] as SVGCircleElement).setAttribute('stroke', zColor);
+
+            shapes.yaxis.setAttribute('stroke', yColor);
+            shapes.zaxis.setAttribute('stroke', zColor);
+        };
+
+        events.on('view.zUp', setZUp);
+
         shapes.px.children[0].addEventListener('pointerdown', (e) => {
             events.fire('camera.align', 'px'); e.stopPropagation();
         });

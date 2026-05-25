@@ -3,6 +3,7 @@ import {
     FILTER_NEAREST,
     PIXELFORMAT_R8,
     PIXELFORMAT_R16U,
+    PIXELFORMAT_RGBA8,
     Asset,
     BoundingBox,
     Color,
@@ -53,6 +54,9 @@ class Splat extends Element {
     // all writes go through state.setBits/clearBits/toggleBits, then flush().
     state: SplatState;
     transformTexture: Texture;
+    semanticTexture: Texture;
+    semanticPaletteTexture: Texture;
+    semanticData: Uint16Array;
     selectionBoundStorage: BoundingBox;
     localBoundStorage: BoundingBox;
     worldBoundStorage: BoundingBox;
@@ -107,6 +111,15 @@ class Splat extends Element {
             });
         }
 
+        if (!this.splatData.getProp('semantic')) {
+            this.splatData.getElement('vertex').properties.push({
+                type: 'ushort',
+                name: 'semantic',
+                storage: new Uint16Array(this.splatData.numSplats),
+                byteSize: 2
+            });
+        }
+
         // per-splat transform matrix
         this.splatData.getElement('vertex').properties.push({
             type: 'ushort',
@@ -132,12 +145,30 @@ class Splat extends Element {
             });
         };
 
+        const createPaletteTexture = () => {
+            return new Texture(device, {
+                name: 'semanticPalette',
+                width: 64,
+                height: 1,
+                format: PIXELFORMAT_RGBA8,
+                mipmaps: false,
+                minFilter: FILTER_NEAREST,
+                magFilter: FILTER_NEAREST,
+                addressU: ADDRESS_CLAMP_TO_EDGE,
+                addressV: ADDRESS_CLAMP_TO_EDGE
+            });
+        };
+
         // create the state texture and the SplatState mirror that owns it.
         // splatData.getProp('state') aliases state.data so existing read-only
         // consumers (serialize, status-bar, etc) keep working unchanged.
         this.stateTexture = createTexture('splatState', PIXELFORMAT_R8);
         this.state = new SplatState(this.splatData.getProp('state') as Uint8Array, this.stateTexture);
         this.transformTexture = createTexture('splatTransform', PIXELFORMAT_R16U);
+        this.semanticData = this.splatData.getProp('semantic') as Uint16Array;
+        this.semanticTexture = createTexture('splatSemantic', PIXELFORMAT_R16U);
+        this.semanticPaletteTexture = createPaletteTexture();
+        this.updateSemanticLabels();
 
         // create the transform palette
         this.transformPalette = new TransformPalette(device);
@@ -152,6 +183,10 @@ class Splat extends Element {
             material.setDefine('SH_BANDS', `${Math.min(bands, (instance.resource as GSplatResource).shBands)}`);
             material.setParameter('splatState', this.stateTexture);
             material.setParameter('splatTransform', this.transformTexture);
+            material.setParameter('splatSemantic', this.semanticTexture);
+            material.setParameter('semanticEnabled', 0);
+            material.setParameter('semanticAlpha', 0.7);
+            material.setParameter('semanticPalette', this.semanticPaletteTexture);
             material.update();
         };
 
@@ -214,6 +249,31 @@ class Splat extends Element {
 
         this.scene.forceRender = true;
         this.scene.events.fire('splat.positionsChanged', this);
+    }
+
+    updateSemanticLabels() {
+        const textureData = this.semanticTexture.lock() as Uint16Array;
+        textureData.set(this.semanticData);
+        this.semanticTexture.unlock();
+        if (this.scene) {
+            this.scene.forceRender = true;
+            this.scene.events.fire('splat.semanticChanged', this);
+        }
+    }
+
+    updateSemanticPalette(palette: Uint8Array, enabled: boolean, alpha: number) {
+        const textureData = this.semanticPaletteTexture.lock() as Uint8Array;
+        textureData.set(palette);
+        this.semanticPaletteTexture.unlock();
+
+        const material = this.entity.gsplat.instance.material;
+        material.setParameter('semanticPalette', this.semanticPaletteTexture);
+        material.setParameter('semanticEnabled', enabled ? 1 : 0);
+        material.setParameter('semanticAlpha', alpha);
+        material.update();
+        if (this.scene) {
+            this.scene.forceRender = true;
+        }
     }
 
     async updateSorting() {

@@ -24,7 +24,8 @@ const sceneConfig = {
         bound: true,
         boundDimensions: false,
         cameraPoses: false,
-        shBands: 3
+        shBands: 3,
+        zUp: false
     },
     controls: {
         dampingFactor: 0.2,

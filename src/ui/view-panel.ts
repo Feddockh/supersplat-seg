@@ -341,6 +341,26 @@ class ViewPanel extends Container {
         showCameraPosesRow.append(showCameraPosesLabel);
         showCameraPosesRow.append(showCameraPosesToggle);
 
+        // z-up
+
+        const zUpRow = new Container({
+            class: 'view-panel-row'
+        });
+
+        const zUpLabel = new Label({
+            text: localize('panel.view-options.z-up'),
+            class: 'view-panel-row-label'
+        });
+
+        const zUpToggle = new BooleanInput({
+            type: 'toggle',
+            class: 'view-panel-row-toggle',
+            value: false
+        });
+
+        zUpRow.append(zUpLabel);
+        zUpRow.append(zUpToggle);
+
         this.append(header);
         this.append(clrRow);
         this.append(tonemappingRow);
@@ -354,6 +374,7 @@ class ViewPanel extends Container {
         this.append(showBoundRow);
         this.append(showBoundDimensionsRow);
         this.append(showCameraPosesRow);
+        this.append(zUpRow);
 
         // handle panel visibility
 
@@ -471,6 +492,16 @@ class ViewPanel extends Container {
 
         showCameraPosesToggle.on('change', () => {
             events.fire('camera.setShowPoses', showCameraPosesToggle.value);
+        });
+
+        // z-up
+
+        events.on('view.zUp', (value: boolean) => {
+            zUpToggle.value = value;
+        });
+
+        zUpToggle.on('change', (value: boolean) => {
+            events.fire('view.setZUp', value);
         });
 
         // background color

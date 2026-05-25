@@ -2,9 +2,13 @@ const vertexShader = /* glsl*/`
 #include "gsplatCommonVS"
 
 uniform sampler2D splatState;
+uniform highp usampler2D splatSemantic;
+uniform sampler2D semanticPalette;
 
 uniform vec4 selectedClr;
 uniform vec4 lockedClr;
+uniform float semanticEnabled;
+uniform float semanticAlpha;
 
 uniform vec3 clrOffset;
 uniform vec4 clrScale;
@@ -141,6 +145,14 @@ void main(void) {
         } else if ((vertexState & 1u) != 0u) {
             // selected
             color.xyz = mix(color.xyz, selectedClr.xyz, selectedClr.a);
+        }
+
+        if (semanticEnabled > 0.5) {
+            uint semanticLabel = texelFetch(splatSemantic, splat.uv, 0).r;
+            if (semanticLabel > 0u && semanticLabel < 64u) {
+                vec4 semanticClr = texelFetch(semanticPalette, ivec2(int(semanticLabel), 0), 0);
+                color.xyz = mix(color.xyz, semanticClr.xyz, semanticClr.a * semanticAlpha);
+            }
         }
     #endif
 }

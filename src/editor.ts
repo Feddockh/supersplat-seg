@@ -235,6 +235,21 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         scene.camera.setPose(new Vec3(x * zoom, y * zoom, z * zoom), new Vec3(0, 0, 0));
     });
 
+    // handle z-up toggle
+    let zUp = false;
+    events.function('view.zUp', () => zUp);
+
+    const setZUp = (value: boolean) => {
+        if (value === zUp) return;
+        zUp = value;
+        scene.contentRoot.setLocalEulerAngles(zUp ? -90 : 0, 0, 0);
+        scene.forceRender = true;
+        events.fire('view.zUp', zUp);
+        events.fire('camera.focus');
+    };
+    events.on('view.setZUp', setZUp);
+    setZUp(scene.config.show.zUp ?? false);
+
     // handle camera align events
     events.on('camera.align', (axis: string) => {
         switch (axis) {
@@ -548,7 +563,8 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
 
         await serializePly(splats, {
             maxSHBands: 3,
-            selected: true
+            selected: true,
+            useLocalTransform: true
         }, memFs);
 
         const data = memFs.results.get('output.ply');

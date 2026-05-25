@@ -41,6 +41,7 @@ type SerializeSettings = {
     // and are only supported by serializePly
     keepStateData?: boolean;        // keep the state data array
     keepWorldTransform?: boolean;   // don't apply the world transform when resolving splat transforms
+    useLocalTransform?: boolean;    // use entity local transform instead of world (avoids double-applying contentRoot rotation on re-import)
     keepColorTint?: boolean;        // refrain from applying color tints
 };
 
@@ -287,7 +288,7 @@ class SplatTransformCache {
     getScale: (index: number) => Vec3;
     getSHRot: (index: number) => SHRotation;
 
-    constructor(splat: Splat, keepWorldTransform = false) {
+    constructor(splat: Splat, keepWorldTransform = false, useLocalTransform = false) {
         const transforms = new Map<number, { transformIndex: number, mat: Mat4, rot: Quat, scale: Vec3, shRot: SHRotation }>();
         const indices = splat.transformTexture.getSource() as unknown as Uint32Array;
         const tmpMat = new Mat4();
@@ -313,7 +314,9 @@ class SplatTransformCache {
                 // we must undo the transform we apply at load time to output data
                 if (!keepWorldTransform) {
                     mat.setFromEulerAngles(0, 0, -180);
-                    mat.mul2(mat, splat.entity.getWorldTransform());
+                    // useLocalTransform: only include the entity's own transform (not contentRoot),
+                    // so that re-importing into a scene with the same contentRoot doesn't double-rotate.
+                    mat.mul2(mat, useLocalTransform ? splat.entity.getLocalTransform() : splat.entity.getWorldTransform());
                 }
 
                 // combine with transform palette matrix
@@ -404,7 +407,7 @@ class SingleSplat {
             // get the cached data entry for this splat
             if (splat !== cacheEntry?.splat) {
                 if (!cacheMap.has(splat)) {
-                    const transformCache = new SplatTransformCache(splat, serializeSettings.keepWorldTransform);
+                    const transformCache = new SplatTransformCache(splat, serializeSettings.keepWorldTransform, serializeSettings.useLocalTransform);
 
                     const srcPropNames = getVertexProperties(splat.splatData);
                     const srcSHBands = calcSHBands(srcPropNames);

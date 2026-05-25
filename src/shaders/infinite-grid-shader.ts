@@ -27,6 +27,7 @@ const fragmentShader = /* glsl*/ `
     uniform sampler2D blueNoiseTex32;
 
     uniform int plane;  // 0: x (yz), 1: y (xz), 2: z (xy)
+    uniform int zUp;    // 1 when Z is the up axis (world Z = data Y, shown green)
 
     vec4 planes[3] = vec4[3](
         vec4(1.0, 0.0, 0.0, 0.0),
@@ -135,7 +136,10 @@ const fragmentShader = /* glsl*/ `
                 if (loc.y < levelSize) {
                     color = vec3(1.0);
                 } else {
-                    color = colors[axis1[plane]];
+                    // In Z-up mode on the XZ plane, world-Z represents data-Y: show green
+                    int colorIdx = axis1[plane];
+                    if (zUp == 1 && plane == 1) colorIdx = 1;
+                    color = colors[colorIdx];
                 }
             } else if (loc.y < levelSize) {
                 color = colors[axis0[plane]];

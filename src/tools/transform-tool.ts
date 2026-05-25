@@ -1,4 +1,4 @@
-import { Entity, GraphicsDevice, TransformGizmo } from 'playcanvas';
+import { Color, Entity, Mat4, Quat, Vec3, TransformGizmo } from 'playcanvas';
 
 import { Events } from '../events';
 import { Pivot } from '../pivot';
@@ -21,13 +21,39 @@ class TransformTool {
             scene.forceRender = true;
         });
 
+        // Temporaries for contentRoot-local ↔ world conversion
+        const _crInvMat = new Mat4();
+        const _worldPos = new Vec3();
+        const _localPos = new Vec3();
+        const _localRot = new Quat();
+
+        // Place the gizmo pivot entity in world space from a contentRoot-local pivot transform.
+        // pivot.transform is always in contentRoot-local space (from getPivot/entity.getLocalPosition).
+        const placeGizmoPivot = () => {
+            const crWorld = scene.contentRoot.getWorldTransform();
+            crWorld.transformPoint(pivot.transform.position, _worldPos);
+            const worldRot = new Quat().mul2(scene.contentRoot.getRotation(), pivot.transform.rotation);
+            pivotEntity.setLocalPosition(_worldPos);
+            pivotEntity.setLocalRotation(worldRot);
+            pivotEntity.setLocalScale(pivot.transform.scale);
+        };
+
+        // Read the gizmo pivot entity world TRS back into contentRoot-local space for the pivot.
+        const readGizmoPivot = () => {
+            _crInvMat.invert(scene.contentRoot.getWorldTransform());
+            _crInvMat.transformPoint(pivotEntity.getLocalPosition(), _localPos);
+            _localRot.copy(scene.contentRoot.getRotation()).invert();
+            _localRot.mul2(_localRot, pivotEntity.getLocalRotation());
+            pivot.moveTRS(_localPos, _localRot, pivotEntity.getLocalScale());
+        };
+
         gizmo.on('transform:start', () => {
             dragging = true;
             pivot.start();
         });
 
         gizmo.on('transform:move', () => {
-            pivot.moveTRS(pivotEntity.getLocalPosition(), pivotEntity.getLocalRotation(), pivotEntity.getLocalScale());
+            readGizmoPivot();
             scene.forceRender = true;
         });
 
@@ -44,9 +70,7 @@ class TransformTool {
                 }
             } else if (!dragging) {
                 pivot = events.invoke('pivot') as Pivot;
-                pivotEntity.setLocalPosition(pivot.transform.position);
-                pivotEntity.setLocalRotation(pivot.transform.rotation);
-                pivotEntity.setLocalScale(pivot.transform.scale);
+                placeGizmoPivot();
                 gizmo.attach([pivotEntity]);
             }
         };
@@ -90,6 +114,18 @@ class TransformTool {
 
         // initialize coodinate space
         gizmo.coordSpace = events.invoke('tool.coordSpace');
+
+        // swap Y/Z axis colors when Z-up is active (world-Y = data-Z should be blue, world-Z = data-Y should be green)
+        const defaultYColor = gizmo.yAxisColor.clone();
+        const defaultZColor = gizmo.zAxisColor.clone();
+
+        const setGizmoZUp = (zUp: boolean) => {
+            gizmo.yAxisColor = zUp ? defaultZColor.clone() : defaultYColor.clone();
+            gizmo.zAxisColor = zUp ? defaultYColor.clone() : defaultZColor.clone();
+        };
+
+        events.on('view.zUp', setGizmoZUp);
+        setGizmoZUp(events.invoke('view.zUp') ?? false);
     }
 }
 

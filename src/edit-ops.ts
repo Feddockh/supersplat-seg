@@ -198,6 +198,43 @@ class EntityTransformOp {
     }
 }
 
+class SemanticLabelOp {
+    name = 'semanticLabel';
+    splat: Splat;
+    indices: Uint32Array;
+    oldLabels: Uint16Array;
+    newLabel: number;
+
+    constructor(options: { splat: Splat, indices: Uint32Array, oldLabels: Uint16Array, newLabel: number }) {
+        this.splat = options.splat;
+        this.indices = options.indices;
+        this.oldLabels = options.oldLabels;
+        this.newLabel = options.newLabel;
+    }
+
+    do() {
+        const semantic = this.splat.semanticData;
+        for (let i = 0; i < this.indices.length; i++) {
+            semantic[this.indices[i]] = this.newLabel;
+        }
+        this.splat.updateSemanticLabels();
+    }
+
+    undo() {
+        const semantic = this.splat.semanticData;
+        for (let i = 0; i < this.indices.length; i++) {
+            semantic[this.indices[i]] = this.oldLabels[i];
+        }
+        this.splat.updateSemanticLabels();
+    }
+
+    destroy() {
+        this.splat = null;
+        this.indices = null;
+        this.oldLabels = null;
+    }
+}
+
 const mat = new Mat4();
 
 // op for modifying a subset of individual splats
@@ -443,6 +480,7 @@ export {
     DeleteSelectionOp,
     ResetOp,
     EntityTransformOp,
+    SemanticLabelOp,
     SplatsTransformOp,
     PlacePivotOp,
     ColorAdjustment,

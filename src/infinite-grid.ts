@@ -62,6 +62,12 @@ class InfiniteGrid extends Element {
         const view_position = [0, 0, 0];
         const viewProjectionMatrix = new Mat4();
         let plane;
+        let zUp = 0;
+
+        this.scene.events.on('view.zUp', (value: boolean) => {
+            zUp = value ? 1 : 0;
+            this.scene.forceRender = true;
+        });
 
         this.scene.camera.camera.on('preRenderLayer', (layer: Layer, transparent: boolean) => {
             const { scene } = this;
@@ -93,7 +99,8 @@ class InfiniteGrid extends Element {
                 resolve(device.scope, {
                     plane,
                     view_position,
-                    matrix_viewProjection: viewProjectionMatrix.data
+                    matrix_viewProjection: viewProjectionMatrix.data,
+                    zUp
                 });
 
                 this.quadRender.render();

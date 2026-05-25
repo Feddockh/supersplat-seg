@@ -115,6 +115,18 @@ class BottomToolbar extends Container {
             icon: 'E358'
         });
 
+        const align = new Button({
+            id: 'bottom-toolbar-align',
+            class: 'bottom-toolbar-tool',
+            text: 'A'
+        });
+
+        const annotate = new Button({
+            id: 'bottom-toolbar-annotate',
+            class: 'bottom-toolbar-tool',
+            icon: 'E135'
+        });
+
         const coordSpace = new Button({
             id: 'bottom-toolbar-coord-space',
             class: 'bottom-toolbar-toggle',
@@ -158,6 +170,8 @@ class BottomToolbar extends Container {
         this.append(scale);
         this.append(new Element({ class: 'bottom-toolbar-separator' }));
         this.append(measure);
+        this.append(align);
+        this.append(annotate);
         this.append(coordSpace);
         this.append(origin);
 
@@ -175,6 +189,8 @@ class BottomToolbar extends Container {
         rotate.dom.addEventListener('click', () => events.fire('tool.rotate'));
         scale.dom.addEventListener('click', () => events.fire('tool.scale'));
         measure.dom.addEventListener('click', () => events.fire('tool.measure'));
+        align.dom.addEventListener('click', () => events.fire('tool.align'));
+        annotate.dom.addEventListener('click', () => events.fire('tool.annotate'));
         coordSpace.dom.addEventListener('click', () => events.fire('tool.toggleCoordSpace'));
         origin.dom.addEventListener('click', () => events.fire('pivot.toggleOrigin'));
 
@@ -197,6 +213,8 @@ class BottomToolbar extends Container {
             rotate.class[toolName === 'rotate' ? 'add' : 'remove']('active');
             scale.class[toolName === 'scale' ? 'add' : 'remove']('active');
             measure.class[toolName === 'measure' ? 'add' : 'remove']('active');
+            align.class[toolName === 'align' ? 'add' : 'remove']('active');
+            annotate.class[toolName === 'annotate' ? 'add' : 'remove']('active');
             eyedropper.class[toolName === 'eyedropperSelection' ? 'add' : 'remove']('active');
         });
 
@@ -235,6 +253,8 @@ class BottomToolbar extends Container {
         tooltips.register(rotate, tooltip('tooltip.bottom-toolbar.rotate', 'tool.rotate'));
         tooltips.register(scale, tooltip('tooltip.bottom-toolbar.scale', 'tool.scale'));
         tooltips.register(measure, tooltip('tooltip.bottom-toolbar.measure'));
+        tooltips.register(align, tooltip('tooltip.bottom-toolbar.align'));
+        tooltips.register(annotate, tooltip('tooltip.bottom-toolbar.annotate'));
         tooltips.register(coordSpace, tooltip('tooltip.bottom-toolbar.local-space', 'tool.toggleCoordSpace'));
         tooltips.register(origin, tooltip('tooltip.bottom-toolbar.bound-center'));
         tooltips.register(eyedropper, tooltip('tooltip.bottom-toolbar.eyedropper', 'tool.eyedropperSelection'));

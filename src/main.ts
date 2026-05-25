@@ -17,17 +17,24 @@ import { getSceneConfig } from './scene-config';
 import { registerSelectionEvents } from './selection';
 import { ShortcutManager } from './shortcut-manager';
 import { registerTimelineEvents } from './timeline';
+import { AlignmentManager } from './alignment';
+import { AlignmentTool } from './tools/alignment-tool';
 import { BoxSelection } from './tools/box-selection';
 import { BrushSelection } from './tools/brush-selection';
 import { EyedropperSelection } from './tools/eyedropper-selection';
 import { FloodSelection } from './tools/flood-selection';
 import { LassoSelection } from './tools/lasso-selection';
+import { initAnnotationIO } from './annotation-io';
+import { AlignmentPanel } from './ui/alignment-panel';
+import { AnnotationPanel } from './ui/annotation-panel';
 import { MeasureTool } from './tools/measure-tool';
 import { MoveTool } from './tools/move-tool';
 import { PolygonSelection } from './tools/polygon-selection';
 import { RectSelection } from './tools/rect-selection';
 import { RotateTool } from './tools/rotate-tool';
 import { ScaleTool } from './tools/scale-tool';
+import { SemanticLabelManager } from './semantic-labels';
+import { SemanticLabelTool } from './tools/semantic-label-tool';
 import { SphereSelection } from './tools/sphere-selection';
 import { ToolManager } from './tools/tool-manager';
 import { registerTrackManagerEvents } from './track-manager';
@@ -241,6 +248,20 @@ const main = async () => {
     toolManager.register('rotate', new RotateTool(events, scene));
     toolManager.register('scale', new ScaleTool(events, scene));
     toolManager.register('measure', new MeasureTool(events, scene, editorUI.toolsContainer.dom, editorUI.canvasContainer));
+
+    const alignmentManager = new AlignmentManager(events, scene);
+    toolManager.register('align', new AlignmentTool(events, scene, alignmentManager, editorUI.canvasContainer));
+
+    const alignmentPanel = new AlignmentPanel(events, scene, alignmentManager);
+    editorUI.canvasContainer.append(alignmentPanel);
+
+    const annotationManager = new SemanticLabelManager(events, scene);
+    toolManager.register('annotate', new SemanticLabelTool(events));
+
+    const annotationPanel = new AnnotationPanel(events, annotationManager);
+    editorUI.canvasContainer.append(annotationPanel);
+
+    initAnnotationIO(events, annotationManager);
 
     const boundDimensionsOverlay = new BoundDimensionsOverlay(events, scene, editorUI.canvasContainer);
 
