@@ -1,20 +1,39 @@
-# SuperSplat Editor
+# SuperSplat-Seg
 
-[![Github Release](https://img.shields.io/github/v/release/playcanvas/supersplat)](https://github.com/playcanvas/supersplat/releases)
-[![License](https://img.shields.io/github/license/playcanvas/supersplat)](https://github.com/playcanvas/supersplat/blob/main/LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white&color=black)](https://discord.gg/RSaMRzg)
-[![Reddit](https://img.shields.io/badge/Reddit-FF4500?style=flat&logo=reddit&logoColor=white&color=black)](https://www.reddit.com/r/PlayCanvas)
-[![X](https://img.shields.io/badge/X-000000?style=flat&logo=x&logoColor=white&color=black)](https://x.com/intent/follow?screen_name=playcanvas)
+A fork of the [SuperSplat Editor](https://github.com/playcanvas/supersplat) extended with research tools for segmentation, alignment, and Z-up coordinate support — developed at the CMU Kantor Lab.
 
-| [SuperSplat Editor](https://superspl.at/editor) | [User Guide](https://developer.playcanvas.com/user-manual/gaussian-splatting/editing/supersplat/) | [Blog](https://blog.playcanvas.com) | [Forum](https://forum.playcanvas.com) |
+> **Upstream:** SuperSplat v2.27.0 | Engine v2.18.2 | PCUI v6.1.4
 
-The SuperSplat Editor is a free and open source tool for inspecting, editing, optimizing and publishing 3D Gaussian Splats. It is built on web technologies and runs in the browser, so there's nothing to download or install.
+## New Features
 
-A live version of this tool is available at: https://superspl.at/editor
+### Semantic Labeling (Segmentation)
+Assign semantic class labels to individual Gaussians and visualize them with a color overlay.
 
-![image](https://github.com/user-attachments/assets/b6cbb5cc-d3cc-4385-8c71-ab2807fd4fba)
+- Open the **Semantic Labels** panel via the annotation button in the bottom toolbar.
+- **Add Class** to create a new label class with an auto-generated color.
+- Select Gaussians using any existing selection tool, then click **Assign Selection** to label them with the active class.
+- Click a class row to make it active; click **Select** to select all Gaussians with that label.
+- Toggle the overlay on/off and adjust opacity with the **Overlay** and **Opacity** controls.
+- **Export Centroids JSON** writes a JSON file with per-class centroid positions and splat counts, useful for downstream analysis.
 
-To learn more about using SuperSplat, please refer to the [User Guide](https://developer.playcanvas.com/user-manual/gaussian-splatting/editing/supersplat/).
+Labels are stored in a per-Gaussian `semantic` channel and are preserved across undo/redo.
+
+### Splat Alignment
+Align two loaded Gaussian splat scenes by picking correspondence point pairs.
+
+- Load two splats and activate the **Align** tool from the bottom toolbar.
+- Pick source and target points on each splat to build correspondence pairs.
+- Click **Align** to compute and apply an ICP-based rigid transform to the source splat.
+
+### Z-Up Coordinate Mode
+Toggle between Y-up (default) and Z-up coordinate systems for data captured in a Z-up frame.
+
+- Enable **Z-Up** in the **View** panel.
+- The scene root rotates −90° on X so that data-Z maps to world-Y, keeping the infinite grid and all tools consistent.
+- The transform gizmo Y/Z axis colors swap to reflect the active convention.
+
+### Point Cloud Import
+`.ply` files containing point cloud data (no Gaussian covariance) can now be imported directly alongside splat files.
 
 ## Local Development
 
