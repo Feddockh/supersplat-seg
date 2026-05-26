@@ -252,6 +252,16 @@ class TimelinePanel extends Container {
             enabled: false
         });
 
+        const clearKeys = new Button({
+            class: ['button', 'tl-text-btn'],
+            text: 'Clear'
+        });
+
+        const orbitToggle = new Button({
+            class: ['button', 'tl-text-btn'],
+            text: 'Orbit'
+        });
+
         const buttonControls = new Container({
             id: 'button-controls'
         });
@@ -260,6 +270,8 @@ class TimelinePanel extends Container {
         buttonControls.append(next);
         buttonControls.append(addKey);
         buttonControls.append(removeKey);
+        buttonControls.append(clearKeys);
+        buttonControls.append(orbitToggle);
 
         // settings
 
@@ -344,9 +356,70 @@ class TimelinePanel extends Container {
         controlsWrap.append(buttonControls);
         controlsWrap.append(spacerR);
 
+        // -- Orbit parameter panel --
+
+        const orbitPanel = new Container({
+            id: 'orbit-panel',
+            hidden: true
+        });
+
+        const orbitRow1 = new Container({ class: 'orbit-row' });
+        const orbitRow2 = new Container({ class: 'orbit-row' });
+        const orbitRow3 = new Container({ class: 'orbit-row' });
+
+        const makeLabel = (text: string) => {
+            const lbl = document.createElement('span');
+            lbl.className = 'orbit-label';
+            lbl.textContent = text;
+            return lbl;
+        };
+
+        const orbitCx = new NumericInput({ class: 'orbit-input', precision: 3, value: 0 });
+        const orbitCy = new NumericInput({ class: 'orbit-input', precision: 3, value: 0 });
+        const orbitCz = new NumericInput({ class: 'orbit-input', precision: 3, value: 0 });
+        const orbitDist = new NumericInput({ class: 'orbit-input', precision: 3, value: 5, min: 0.001 });
+        const orbitElev = new NumericInput({ class: 'orbit-input', precision: 1, value: 0 });
+        const orbitAzimStart = new NumericInput({ class: 'orbit-input', precision: 1, value: 0 });
+        const orbitAzimEnd = new NumericInput({ class: 'orbit-input', precision: 1, value: 360 });
+        const orbitFrameStart = new NumericInput({ class: 'orbit-input', precision: 0, value: 0, min: 0 });
+        const orbitFrameEnd = new NumericInput({ class: 'orbit-input', precision: 0, value: 179, min: 0 });
+        const orbitStep = new NumericInput({ class: 'orbit-input', precision: 0, value: 5, min: 1 });
+
+        const genOrbit = new Button({
+            class: 'orbit-gen-button',
+            text: 'Generate Orbit'
+        });
+
+        orbitRow1.dom.appendChild(makeLabel('Ctr'));
+        orbitRow1.append(orbitCx);
+        orbitRow1.append(orbitCy);
+        orbitRow1.append(orbitCz);
+        orbitRow1.dom.appendChild(makeLabel('Dist'));
+        orbitRow1.append(orbitDist);
+        orbitRow1.dom.appendChild(makeLabel('Elev'));
+        orbitRow1.append(orbitElev);
+
+        orbitRow2.dom.appendChild(makeLabel('Degrees'));
+        orbitRow2.append(orbitAzimStart);
+        orbitRow2.dom.appendChild(makeLabel('→'));
+        orbitRow2.append(orbitAzimEnd);
+        orbitRow2.dom.appendChild(makeLabel('Frame'));
+        orbitRow2.append(orbitFrameStart);
+        orbitRow2.dom.appendChild(makeLabel('→'));
+        orbitRow2.append(orbitFrameEnd);
+        orbitRow2.dom.appendChild(makeLabel('Step'));
+        orbitRow2.append(orbitStep);
+
+        orbitRow3.append(genOrbit);
+
+        orbitPanel.append(orbitRow1);
+        orbitPanel.append(orbitRow2);
+        orbitPanel.append(orbitRow3);
+
         const ticks = new Ticks(events, tooltips);
 
         this.append(controlsWrap);
+        this.append(orbitPanel);
         this.append(ticks);
 
         // ui handlers
@@ -387,6 +460,59 @@ class TimelinePanel extends Container {
         removeKey.on('click', () => {
             const frame = events.invoke('timeline.frame');
             events.fire('track.removeKey', frame);
+        });
+
+        clearKeys.on('click', () => {
+            events.fire('track.clearKeys');
+        });
+
+        orbitToggle.on('click', () => {
+            const open = orbitPanel.hidden;
+            orbitPanel.hidden = !open;
+            orbitToggle.class[open ? 'add' : 'remove']('active');
+
+            if (open) {
+                // auto-populate from current camera state
+                const pose = events.invoke('camera.getPose') as {
+                    position: { x: number, y: number, z: number };
+                    target:   { x: number, y: number, z: number };
+                } | null;
+                const angles = events.invoke('camera.getAzimElev') as { azim: number, elevation: number } | null;
+                const totalFrames = (events.invoke('timeline.frames') as number) ?? 180;
+
+                if (pose) {
+                    orbitCx.value = parseFloat(pose.target.x.toFixed(3));
+                    orbitCy.value = parseFloat(pose.target.y.toFixed(3));
+                    orbitCz.value = parseFloat(pose.target.z.toFixed(3));
+
+                    const dx = pose.position.x - pose.target.x;
+                    const dy = pose.position.y - pose.target.y;
+                    const dz = pose.position.z - pose.target.z;
+                    orbitDist.value = parseFloat(Math.sqrt(dx * dx + dy * dy + dz * dz).toFixed(3));
+                }
+                if (angles) {
+                    orbitElev.value = parseFloat(angles.elevation.toFixed(1));
+                    orbitAzimStart.value = parseFloat(angles.azim.toFixed(1));
+                    orbitAzimEnd.value = parseFloat((angles.azim + 360).toFixed(1));
+                }
+                orbitFrameStart.value = 0;
+                orbitFrameEnd.value = totalFrames - 1;
+            }
+        });
+
+        genOrbit.on('click', () => {
+            events.fire('track.generateOrbit', {
+                cx: orbitCx.value ?? 0,
+                cy: orbitCy.value ?? 0,
+                cz: orbitCz.value ?? 0,
+                distance: orbitDist.value ?? 5,
+                elevation: orbitElev.value ?? 0,
+                azimStart: orbitAzimStart.value ?? 0,
+                azimEnd: orbitAzimEnd.value ?? 360,
+                frameStart: orbitFrameStart.value ?? 0,
+                frameEnd: orbitFrameEnd.value ?? 179,
+                step: orbitStep.value ?? 5
+            });
         });
 
         // Helper to check if the current frame has a key
@@ -456,6 +582,8 @@ class TimelinePanel extends Container {
         tooltips.register(next, tooltip('tooltip.timeline.next-frame', 'timeline.nextFrame'), 'top');
         tooltips.register(addKey, tooltip('tooltip.timeline.add-key', 'track.addKey'), 'top');
         tooltips.register(removeKey, tooltip('tooltip.timeline.remove-key', 'track.removeKey'), 'top');
+        tooltips.register(clearKeys, 'Clear all keyframes', 'top');
+        tooltips.register(orbitToggle, 'Generate orbit keyframes', 'top');
         tooltips.register(speed, localize('tooltip.timeline.frame-rate'), 'top');
         tooltips.register(frames, localize('tooltip.timeline.total-frames'), 'top');
         tooltips.register(smoothness, localize('tooltip.timeline.smoothness'), 'top');

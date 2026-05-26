@@ -135,6 +135,72 @@ body {
     pointer-events: none;
 }
 
+#camera-pose-overlay {
+    position: absolute;
+    right: 6px;
+    top: 142px;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 4px;
+    padding: 5px 7px;
+    pointer-events: all;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    .cpd-row {
+        display: flex;
+        flex-direction: row;
+        gap: 5px;
+    }
+
+    .cpd-field {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .cpd-label {
+        font-size: 10px;
+        font-family: monospace;
+        color: #888;
+        min-width: 10px;
+        user-select: none;
+    }
+
+    .cpd-input {
+        width: 54px;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid #444;
+        color: #ccc;
+        font-size: 10px;
+        font-family: monospace;
+        text-align: right;
+        padding: 1px 2px;
+        outline: none;
+
+        &:focus {
+            border-bottom-color: #888;
+            color: #fff;
+        }
+
+        &[readonly] {
+            color: #555;
+            border-bottom-color: transparent;
+            cursor: default;
+        }
+
+        /* hide browser spin buttons */
+        &::-webkit-outer-spin-button,
+        &::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        -moz-appearance: textfield;
+    }
+}
+
 #mask-canvas {
     display: none;
     position: absolute;

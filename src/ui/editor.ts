@@ -23,6 +23,7 @@ import { StatusBar } from './status-bar';
 import { TimelinePanel } from './timeline-panel';
 import { Tooltips } from './tooltips';
 import { VideoSettingsDialog } from './video-settings-dialog';
+import { CameraPoseOverlay } from './camera-pose-overlay';
 import { ViewCube } from './view-cube';
 import { ViewPanel } from './view-panel';
 import { version } from '../../package.json';
@@ -146,6 +147,10 @@ class EditorUI {
         events.on('prerender', (cameraMatrix: Mat4) => {
             viewCube.update(cameraMatrix);
         });
+
+        // camera pose overlay (below view cube)
+        const cameraPoseOverlay = new CameraPoseOverlay(events);
+        canvasContainer.append(cameraPoseOverlay);
 
         // main container
         const mainContainer = new Container({

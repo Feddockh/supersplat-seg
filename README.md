@@ -35,6 +35,25 @@ Toggle between Y-up (default) and Z-up coordinate systems for data captured in a
 ### Point Cloud Import
 `.ply` files containing point cloud data (no Gaussian covariance) can now be imported directly alongside splat files.
 
+### Orbit Animation Generator
+Generate a smooth camera orbit as a dense set of keyframes in the timeline — avoiding the "camera dip" artifact that occurs with sparse keyframes on a circular path.
+
+- Open the timeline panel (bottom toolbar) and click the **orbit icon** button to expand the orbit parameter panel.
+- Set the orbit **center** (X/Y/Z), **distance**, **elevation** (degrees above the equator), **start/end azimuth** (degrees), **start/end frame**, and **step** (frames between generated keyframes).
+- Click **Generate Orbit** to replace the timeline with the generated keyframes.
+- Defaults are auto-filled from the current camera position when the panel is opened.
+- Use **Clear** (trash icon) to remove all keyframes and start over.
+
+Both operations are fully undoable with Ctrl+Z.
+
+### Camera Pose Overlay
+A compact HUD in the top-right corner, just below the axis gizmo, showing the camera's live position and orientation.
+
+- **X / Y / Z** — camera world position.
+- **R / P / Y** — Roll (fixed at 0 for orbit camera), Pitch (elevation), Yaw (azimuth) in degrees.
+- All values update in real time as the camera moves.
+- Click any editable field and type a new value, then press **Enter** (or click away) to jump the camera to that position or angle precisely.
+
 ### Opacity Select
 Select Gaussians by opacity value to prune low-opacity splats that are barely visible — reducing file size and improving scene performance.
 

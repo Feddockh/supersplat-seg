@@ -1,4 +1,7 @@
+import { Vec3 } from 'playcanvas';
+
 import { AnimTrack } from './anim-track';
+import { CameraAnimTrack, Pose } from './camera-poses';
 import { AnimTrackEditOp } from './edit-ops';
 import { Events } from './events';
 
@@ -55,6 +58,54 @@ const registerTrackManagerEvents = (events: Events) => {
     // Copy key in active track
     events.on('track.copyKey', (fromFrame: number, toFrame: number) => {
         trackEdit('copyKey', track => track.copyKey(fromFrame, toFrame));
+    });
+
+    // Clear all keys from active track
+    events.on('track.clearKeys', () => {
+        trackEdit('clearKeys', (track) => {
+            if (track.keys.length === 0) return false;
+            track.clear();
+            return true;
+        });
+    });
+
+    // Generate orbit keyframes and load them into the active track
+    events.on('track.generateOrbit', (params: {
+        cx: number; cy: number; cz: number;
+        distance: number; elevation: number;
+        azimStart: number; azimEnd: number;
+        frameStart: number; frameEnd: number;
+        step: number;
+    }) => {
+        trackEdit('generateOrbit', (track) => {
+            const camTrack = track as CameraAnimTrack;
+            const fov: number = (events.invoke('camera.fov') as number) ?? 60;
+
+            const { cx, cy, cz, distance, elevation, azimStart, azimEnd, frameStart, frameEnd, step } = params;
+            const elevRad = elevation * Math.PI / 180;
+
+            const poses: Pose[] = [];
+            for (let frame = frameStart; frame <= frameEnd; frame += step) {
+                const t = frameEnd === frameStart ? 0 : (frame - frameStart) / (frameEnd - frameStart);
+                const azimRad = (azimStart + t * (azimEnd - azimStart)) * Math.PI / 180;
+
+                poses.push({
+                    name: `orbit_${frame}`,
+                    frame,
+                    position: new Vec3(
+                        cx + Math.cos(elevRad) * Math.sin(azimRad) * distance,
+                        cy - Math.sin(elevRad) * distance,
+                        cz + Math.cos(elevRad) * Math.cos(azimRad) * distance
+                    ),
+                    target: new Vec3(cx, cy, cz),
+                    fov
+                });
+            }
+
+            if (poses.length === 0) return false;
+            camTrack.loadPoses(poses);
+            return true;
+        });
     });
 };
 

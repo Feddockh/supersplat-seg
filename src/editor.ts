@@ -804,6 +804,15 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         };
     });
 
+    events.function('camera.getAzimElev', () => ({
+        azim: scene.camera.azim,
+        elevation: scene.camera.elevation
+    }));
+
+    events.on('camera.setAzimElev', ({ azim, elevation }: { azim: number, elevation: number }) => {
+        scene.camera.setAzimElev(azim, elevation);
+    });
+
     events.on('camera.setPose', (pose: { position: Vec3, target: Vec3, fov?: number }, speed = 1) => {
         // assign fov before setPose so distance is computed using the new fovFactor
         if (pose.fov !== undefined) {

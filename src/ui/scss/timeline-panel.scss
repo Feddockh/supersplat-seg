@@ -43,6 +43,18 @@
                     box-shadow: none;
                     border-color: #ff990088;
                 }
+
+                &.active {
+                    color: #ff9900;
+                    border-color: #ff990088;
+                }
+            }
+
+            > .tl-text-btn {
+                font-family: inherit;
+                font-size: 11px;
+                width: auto;
+                padding: 0 6px;
             }
         }
 
@@ -86,6 +98,46 @@
             margin: 0;
             > input {
                 width: 40px;
+            }
+        }
+    }
+
+    > #orbit-panel {
+        display: flex;
+        flex-direction: column;
+        background-color: $bcg-darker;
+        padding: 4px 8px;
+        gap: 3px;
+        border-bottom: 1px solid $bcg-dark;
+
+        &.pcui-hidden { display: none; }
+
+        > .orbit-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2px;
+
+            > .orbit-label {
+                font-size: 10px;
+                color: #888;
+                font-family: monospace;
+                white-space: nowrap;
+                padding: 0 3px;
+            }
+
+            > .orbit-input {
+                margin: 0;
+                width: 64px;
+                flex-shrink: 0;
+            }
+
+            > .orbit-gen-button {
+                margin: 0;
+                height: 22px;
+                font-size: 11px;
+                padding: 0 10px;
             }
         }
     }
