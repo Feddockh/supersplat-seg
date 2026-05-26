@@ -1,0 +1,14 @@
+<svg
+   width="38"
+   height="38"
+   viewBox="0 0 38 38"
+   fill="none"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg">
+  <!-- Circle representing a splat with opacity fill -->
+  <circle cx="19" cy="19" r="12" stroke="currentColor" stroke-width="1.5" fill="none" stroke-dasharray="3 2"/>
+  <!-- Half-filled circle to represent opacity/transparency -->
+  <path d="M19 7 A12 12 0 0 1 19 31 Z" fill="currentColor" opacity="0.9"/>
+  <!-- Small alpha label -->
+  <text x="19" y="22" text-anchor="middle" font-size="9" fill="currentColor" font-family="sans-serif" font-style="italic">α</text>
+</svg>

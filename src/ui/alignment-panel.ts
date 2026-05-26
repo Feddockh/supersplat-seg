@@ -50,7 +50,7 @@ class AlignmentPanel extends Container {
                 { v: 'rigid', t: 'Rigid' },
                 { v: 'similarity', t: 'Similarity' }
             ],
-            value: 'rigid'
+            value: 'similarity'
         });
 
         const sourceRow = new Container({ class: 'alignment-control-row' });

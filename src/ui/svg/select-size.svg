@@ -1,0 +1,14 @@
+<svg
+   width="38"
+   height="38"
+   viewBox="0 0 38 38"
+   fill="none"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg">
+  <!-- Large splat (big circle) -->
+  <circle cx="24" cy="20" r="9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+  <!-- Small splat (small circle, filled to indicate "below threshold") -->
+  <circle cx="10" cy="20" r="4" stroke="currentColor" stroke-width="1.5" fill="currentColor"/>
+  <!-- Tiny splat -->
+  <circle cx="10" cy="10" r="2" fill="currentColor"/>
+</svg>

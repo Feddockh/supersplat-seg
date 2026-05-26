@@ -534,6 +534,42 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         }
     });
 
+    // Select splats with sigmoid(opacity) below the threshold
+    events.on('select.opacityBelow', (op: 'set' | 'add' | 'remove', threshold: number) => {
+        for (const splat of selectedSplats()) {
+            const opacityProp = splat.splatData.getProp('opacity') as Float32Array;
+            if (!opacityProp) continue;
+            const numSplats = splat.splatData.numSplats;
+            const mask = new Uint8Array(numSplats);
+            for (let i = 0; i < numSplats; i++) {
+                const sigmoidOpacity = 1 / (1 + Math.exp(-opacityProp[i]));
+                if (sigmoidOpacity < threshold) {
+                    mask[i] = 255;
+                }
+            }
+            events.fire('edit.add', new SelectOp(splat, op, mask));
+        }
+    });
+
+    // Select splats with exp(scale_0) + exp(scale_1) + exp(scale_2) below the threshold
+    events.on('select.sizeBelow', (op: 'set' | 'add' | 'remove', threshold: number) => {
+        for (const splat of selectedSplats()) {
+            const scale0 = splat.splatData.getProp('scale_0') as Float32Array;
+            const scale1 = splat.splatData.getProp('scale_1') as Float32Array;
+            const scale2 = splat.splatData.getProp('scale_2') as Float32Array;
+            if (!scale0 || !scale1 || !scale2) continue;
+            const numSplats = splat.splatData.numSplats;
+            const mask = new Uint8Array(numSplats);
+            for (let i = 0; i < numSplats; i++) {
+                const size = Math.exp(scale0[i]) + Math.exp(scale1[i]) + Math.exp(scale2[i]);
+                if (size < threshold) {
+                    mask[i] = 255;
+                }
+            }
+            events.fire('edit.add', new SelectOp(splat, op, mask));
+        }
+    });
+
     events.on('select.hide', () => {
         selectedSplats().forEach((splat) => {
             events.fire('edit.add', new HideSelectionOp(splat));

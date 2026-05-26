@@ -22,6 +22,8 @@ import { AlignmentTool } from './tools/alignment-tool';
 import { BoxSelection } from './tools/box-selection';
 import { BrushSelection } from './tools/brush-selection';
 import { EyedropperSelection } from './tools/eyedropper-selection';
+import { OpacitySelection } from './tools/opacity-selection';
+import { SizeSelection } from './tools/size-selection';
 import { FloodSelection } from './tools/flood-selection';
 import { LassoSelection } from './tools/lasso-selection';
 import { initAnnotationIO } from './annotation-io';
@@ -244,6 +246,8 @@ const main = async () => {
     toolManager.register('sphereSelection', new SphereSelection(events, scene, editorUI.canvasContainer));
     toolManager.register('boxSelection', new BoxSelection(events, scene, editorUI.canvasContainer));
     toolManager.register('eyedropperSelection', new EyedropperSelection(events, editorUI.toolsContainer.dom, editorUI.canvasContainer));
+    toolManager.register('opacitySelection', new OpacitySelection(events, editorUI.canvasContainer));
+    toolManager.register('sizeSelection', new SizeSelection(events, editorUI.canvasContainer));
     toolManager.register('move', new MoveTool(events, scene));
     toolManager.register('rotate', new RotateTool(events, scene));
     toolManager.register('scale', new ScaleTool(events, scene));

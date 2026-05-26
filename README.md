@@ -35,6 +35,22 @@ Toggle between Y-up (default) and Z-up coordinate systems for data captured in a
 ### Point Cloud Import
 `.ply` files containing point cloud data (no Gaussian covariance) can now be imported directly alongside splat files.
 
+### Opacity Select
+Select Gaussians by opacity value to prune low-opacity splats that are barely visible — reducing file size and improving scene performance.
+
+- Activate the **Opacity Select** tool from the bottom toolbar (to the right of the eyedropper).
+- Set a **Threshold** (0–1). Gaussians with a decoded opacity below this value will be targeted.
+- Click **Select** to replace the current selection, **Add** to extend it, or **Remove** to subtract from it.
+
+### Size Select
+Select Gaussians by size to prune tiny splats that contribute little to the rendered image.
+
+- Activate the **Size Select** tool from the bottom toolbar (to the right of Opacity Select).
+- Set a **Threshold**. Gaussians whose size (`scale_x + scale_y + scale_z` after exponentiation) is below this value will be targeted.
+- Click **Select** to replace the current selection, **Add** to extend it, or **Remove** to subtract from it.
+
+> Opacity Select and Size Select are adapted from [GaussianSplatEditor](https://github.com/TimChen1383/GaussianSplatEditor) by [@TimChen1383](https://github.com/TimChen1383).
+
 ## Local Development
 
 To initialize a local development environment for SuperSplat, ensure you have [Node.js](https://nodejs.org/) 18 or later installed. Follow these steps:

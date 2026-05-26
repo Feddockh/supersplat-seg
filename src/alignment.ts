@@ -147,7 +147,7 @@ class AlignmentManager {
     target: Splat | null = null;
     pairs: AlignmentPair[] = [];
     pickSide: AlignmentPickSide = 'source';
-    mode: AlignmentMode = 'rigid';
+    mode: AlignmentMode = 'similarity';
     previewActive = false;
     previewOld: Transform | null = null;
     lastResult: AlignmentSolveResult | null = null;
