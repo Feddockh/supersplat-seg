@@ -38,11 +38,11 @@ Toggle between Y-up (default) and Z-up coordinate systems for data captured in a
 ### Orbit Animation Generator
 Generate a smooth camera orbit as a dense set of keyframes in the timeline — avoiding the "camera dip" artifact that occurs with sparse keyframes on a circular path.
 
-- Open the timeline panel (bottom toolbar) and click the **orbit icon** button to expand the orbit parameter panel.
-- Set the orbit **center** (X/Y/Z), **distance**, **elevation** (degrees above the equator), **start/end azimuth** (degrees), **start/end frame**, and **step** (frames between generated keyframes).
+- Open the timeline panel (bottom toolbar) and click the **Orbit** button to expand the orbit parameter panel.
+- Set the orbit **center** (X/Y/Z), **distance**, **elevation** (degrees above the horizon), **degrees** (start/end azimuth in degrees), **frame** (start/end frame), and **step** (frames between generated keyframes).
 - Click **Generate Orbit** to replace the timeline with the generated keyframes.
 - Defaults are auto-filled from the current camera position when the panel is opened.
-- Use **Clear** (trash icon) to remove all keyframes and start over.
+- Click **Clear** to remove all keyframes and start over.
 
 Both operations are fully undoable with Ctrl+Z.
 
