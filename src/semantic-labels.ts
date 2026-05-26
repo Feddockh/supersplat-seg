@@ -64,6 +64,46 @@ class SemanticLabelManager {
         events.on('edit.apply', () => {
             this.changed();
         });
+
+        // Reset to defaults when the scene is cleared (new document / load)
+        events.on('scene.clear', () => {
+            this.classes.clear();
+            this.nextClassId = 1;
+            this.addClass('Class 1', [1, 0.35, 0.05]);
+            this.activeClassId = 1;
+            this.overlayEnabled = true;
+            this.overlayAlpha = 0.7;
+            events.fire('semantic.changed');
+        });
+
+        events.function('docSerialize.semanticLabels', () => {
+            return {
+                classes: [...this.classes.values()],
+                activeClassId: this.activeClassId,
+                overlayEnabled: this.overlayEnabled,
+                overlayAlpha: this.overlayAlpha,
+                nextClassId: this.nextClassId
+            };
+        });
+
+        events.function('docDeserialize.semanticLabels', (data?: {
+            classes: SemanticClass[];
+            activeClassId: number;
+            overlayEnabled: boolean;
+            overlayAlpha: number;
+            nextClassId: number;
+        }) => {
+            if (!data?.classes?.length) return;
+            this.classes.clear();
+            for (const cls of data.classes) {
+                this.classes.set(cls.id, cls);
+            }
+            this.activeClassId = data.activeClassId ?? 1;
+            this.overlayEnabled = data.overlayEnabled ?? true;
+            this.overlayAlpha = data.overlayAlpha ?? 0.7;
+            this.nextClassId = data.nextClassId ?? (Math.max(0, ...this.classes.keys()) + 1);
+            this.changed();
+        });
     }
 
     get splats() {
