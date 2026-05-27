@@ -67,6 +67,26 @@ class AnnotationPanel extends Container {
         classListOuter.append(classList);
         this.append(classListOuter);
 
+        const epsilonRow = new Container({ class: 'semantic-overlay-row' });
+        const epsilonLabel = new Label({ text: 'Min Cluster Dist', class: 'semantic-label' });
+        const epsilonInput = new NumericInput({
+            min: 0.001,
+            precision: 3,
+            step: 0.01,
+            value: manager.clusterEpsilon,
+            width: 72
+        });
+        epsilonRow.append(epsilonLabel);
+        epsilonRow.append(epsilonInput);
+        this.append(epsilonRow);
+
+        const centroidControls = new Container({ class: 'semantic-top-controls' });
+        const computeCentroidsBtn = new Button({ text: 'Compute Centroids', class: 'semantic-button' });
+        const clearCentroidsBtn = new Button({ text: 'Clear Centroids', class: 'semantic-button' });
+        centroidControls.append(computeCentroidsBtn);
+        centroidControls.append(clearCentroidsBtn);
+        this.append(centroidControls);
+
         const exportBtn = new Button({ id: 'annotation-export-centroids', text: 'Export Centroids JSON' });
         this.append(exportBtn);
 
@@ -174,6 +194,18 @@ class AnnotationPanel extends Container {
 
         alphaInput.on('change', (value: number) => {
             manager.setOverlayAlpha(value);
+        });
+
+        epsilonInput.on('change', (value: number) => {
+            manager.clusterEpsilon = value;
+        });
+
+        computeCentroidsBtn.dom.addEventListener('click', () => {
+            events.fire('semantic.computeCentroids');
+        });
+
+        clearCentroidsBtn.dom.addEventListener('click', () => {
+            events.fire('semantic.clearCentroids');
         });
 
         exportBtn.dom.addEventListener('click', async () => {

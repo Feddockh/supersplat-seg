@@ -105,8 +105,8 @@ class AlignmentPanel extends Container {
         this.append(actionRow);
 
         const splatName = (splat: Splat) => {
-            const filename = (splat.asset.file as any)?.filename ?? splat.name ?? `Splat ${splat.uid}`;
-            return `${splat.uid}: ${filename}`;
+            const name = splat.name || (splat.asset.file as any)?.filename || `Splat ${splat.uid}`;
+            return `${splat.uid}: ${name}`;
         };
 
         const splats = () => scene.getElementsByType(ElementType.splat) as Splat[];
@@ -208,6 +208,7 @@ class AlignmentPanel extends Container {
         events.on('alignment.changed', update);
         events.on('scene.elementAdded', update);
         events.on('scene.elementRemoved', update);
+        events.on('splat.name', update);
 
         update();
     }

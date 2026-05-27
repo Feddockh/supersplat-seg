@@ -33,7 +33,7 @@ class AlignmentTool {
         let active = false;
         let clicked = false;
 
-        const markerRadius = () => Math.max(0.006, scene.camera.sceneRadius * 0.012);
+        const markerRadius = () => Math.max(0.006, Math.min(0.05, scene.camera.sceneRadius * 0.012));
 
         const createMarker = (id: string, side: AlignmentPickSide, parent: Entity, position: Vec3) => {
             const entity = new Entity(`alignment_${id}`);

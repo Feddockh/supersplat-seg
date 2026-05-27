@@ -19,6 +19,7 @@ type SemanticCentroid = {
     classId: number;
     className: string;
     color: [number, number, number];
+    clusterIndex: number;
     count: number;
     centroid: [number, number, number];
 };
@@ -30,6 +31,72 @@ type SemanticCentroidExport = {
 
 const MAX_CLASSES = 63;
 const tmp = new Vec3();
+
+// DBSCAN clustering with voxel-grid acceleration for O(n) neighbor lookups.
+// Uses a cell size equal to epsilon so only 27 adjacent cells need checking.
+// With minPts=1 every point is a core point — no noise, just connected components
+// linked by true Euclidean distance. Returns a cluster id per input point (0-based).
+const dbscanCluster = (pts: { x: number; y: number; z: number }[], epsilon: number): number[] => {
+    if (pts.length === 0) return [];
+
+    const eps2 = epsilon * epsilon;
+    const grid = new Map<string, number[]>();
+    const voxels: [number, number, number][] = new Array(pts.length);
+
+    for (let i = 0; i < pts.length; i++) {
+        const vx = Math.floor(pts[i].x / epsilon);
+        const vy = Math.floor(pts[i].y / epsilon);
+        const vz = Math.floor(pts[i].z / epsilon);
+        voxels[i] = [vx, vy, vz];
+        const key = `${vx},${vy},${vz}`;
+        const cell = grid.get(key);
+        if (cell) cell.push(i); else grid.set(key, [i]);
+    }
+
+    const epsilonNeighbors = (i: number): number[] => {
+        const [vx, vy, vz] = voxels[i];
+        const result: number[] = [];
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const cell = grid.get(`${vx + dx},${vy + dy},${vz + dz}`);
+                    if (!cell) continue;
+                    for (const j of cell) {
+                        if (j === i) continue;
+                        const ex = pts[i].x - pts[j].x;
+                        const ey = pts[i].y - pts[j].y;
+                        const ez = pts[i].z - pts[j].z;
+                        if (ex * ex + ey * ey + ez * ez <= eps2) result.push(j);
+                    }
+                }
+            }
+        }
+        return result;
+    };
+
+    const clusterOf = new Int32Array(pts.length).fill(-1);
+    let nextCluster = 0;
+
+    for (let i = 0; i < pts.length; i++) {
+        if (clusterOf[i] !== -1) continue;
+        clusterOf[i] = nextCluster;
+        const queue = epsilonNeighbors(i).filter(j => clusterOf[j] === -1);
+        for (const j of queue) clusterOf[j] = nextCluster;
+        let qi = 0;
+        while (qi < queue.length) {
+            const j = queue[qi++];
+            for (const k of epsilonNeighbors(j)) {
+                if (clusterOf[k] === -1) {
+                    clusterOf[k] = nextCluster;
+                    queue.push(k);
+                }
+            }
+        }
+        nextCluster++;
+    }
+
+    return Array.from(clusterOf);
+};
 
 const colorForId = (id: number): [number, number, number] => {
     const hue = (id * 0.61803398875) % 1;
@@ -47,6 +114,7 @@ class SemanticLabelManager {
     activeClassId = 1;
     overlayEnabled = true;
     overlayAlpha = 0.7;
+    clusterEpsilon = 0.05;
     private nextClassId = 1;
 
     constructor(events: Events, scene: Scene) {
@@ -280,6 +348,7 @@ class SemanticLabelManager {
     }
 
     exportCentroids(): SemanticCentroidExport {
+        const epsilon = this.clusterEpsilon;
         const segments: SemanticCentroid[] = [];
 
         for (const splat of this.splats) {
@@ -290,24 +359,38 @@ class SemanticLabelManager {
             const z = splat.splatData.getProp('z') as Float32Array;
 
             for (const cls of this.classes.values()) {
-                let count = 0;
-                const sum = new Vec3();
+                // Collect world-space positions for this class
+                const pts: Vec3[] = [];
                 for (let i = 0; i < semantic.length; i++) {
                     if (semantic[i] === cls.id && (state[i] & State.deleted) === 0) {
                         tmp.set(x[i], y[i], z[i]);
                         splat.worldTransform.transformPoint(tmp, tmp);
-                        sum.add(tmp);
-                        count++;
+                        pts.push(tmp.clone());
                     }
                 }
 
-                if (count > 0) {
+                if (pts.length === 0) continue;
+
+                // Cluster with DBSCAN using true Euclidean epsilon-neighborhoods
+                const clusterIds = dbscanCluster(pts, epsilon);
+                const numClusters = Math.max(...clusterIds) + 1;
+
+                for (let c = 0; c < numClusters; c++) {
+                    const sum = new Vec3();
+                    let count = 0;
+                    for (let i = 0; i < pts.length; i++) {
+                        if (clusterIds[i] === c) {
+                            sum.add(pts[i]);
+                            count++;
+                        }
+                    }
                     sum.mulScalar(1 / count);
                     segments.push({
                         splat: splat.filename,
                         classId: cls.id,
                         className: cls.name,
                         color: cls.color,
+                        clusterIndex: c,
                         count,
                         centroid: [sum.x, sum.y, sum.z]
                     });

@@ -27,6 +27,7 @@ import { SizeSelection } from './tools/size-selection';
 import { FloodSelection } from './tools/flood-selection';
 import { LassoSelection } from './tools/lasso-selection';
 import { initAnnotationIO } from './annotation-io';
+import { initCentroidMarkers } from './centroid-markers';
 import { AlignmentPanel } from './ui/alignment-panel';
 import { AnnotationPanel } from './ui/annotation-panel';
 import { MeasureTool } from './tools/measure-tool';
@@ -266,6 +267,7 @@ const main = async () => {
     editorUI.canvasContainer.append(annotationPanel);
 
     initAnnotationIO(events, annotationManager);
+    initCentroidMarkers(events, scene, annotationManager);
 
     const boundDimensionsOverlay = new BoundDimensionsOverlay(events, scene, editorUI.canvasContainer);
 
