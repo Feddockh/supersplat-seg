@@ -198,14 +198,21 @@ class EntityTransformOp {
     }
 }
 
+// target is any element that exposes `semanticData: Uint16Array` and
+// `updateSemanticLabels(): void` — currently Splat and Mesh.
+interface SemanticLabelTarget {
+    semanticData: Uint16Array;
+    updateSemanticLabels(): void;
+}
+
 class SemanticLabelOp {
     name = 'semanticLabel';
-    splat: Splat;
+    splat: SemanticLabelTarget;
     indices: Uint32Array;
     oldLabels: Uint16Array;
     newLabel: number;
 
-    constructor(options: { splat: Splat, indices: Uint32Array, oldLabels: Uint16Array, newLabel: number }) {
+    constructor(options: { splat: SemanticLabelTarget, indices: Uint32Array, oldLabels: Uint16Array, newLabel: number }) {
         this.splat = options.splat;
         this.indices = options.indices;
         this.oldLabels = options.oldLabels;
@@ -469,12 +476,89 @@ class SplatRenameOp {
     }
 }
 
+// per-vertex selection op for the Mesh element. mirrors SelectOp's 'add' |
+// 'remove' | 'set' modes but acts on Mesh.selectionState (Uint8Array of 0/1)
+// instead of the splat state-bits buffer. accepts either an explicit Uint32Array
+// of vertex indices or a Uint8Array hit-mask (255 = hit) sized to totalVertexCount.
+class MeshSelectOp {
+    name = 'meshSelectOp';
+    mesh: any;
+    indices: Uint32Array;     // vertex indices whose selection bit will be flipped
+    targets: Uint8Array;      // new value (0/1) per index — only used when not all same
+
+    constructor(mesh: any, op: 'add' | 'remove' | 'set', sel: Uint8Array | Uint32Array) {
+        this.mesh = mesh;
+
+        const total: number = mesh.totalVertexCount;
+        const cur: Uint8Array = mesh.selectionState;
+
+        const isHit = sel instanceof Uint32Array ?
+            sortedPredicate(sel) :
+            (i: number) => (sel as Uint8Array)[i] === 255;
+
+        const idx: number[] = [];
+        const tgt: number[] = [];
+
+        if (op === 'add') {
+            for (let i = 0; i < total; i++) {
+                if (cur[i] === 0 && isHit(i)) {
+                    idx.push(i);
+                    tgt.push(1);
+                }
+            }
+        } else if (op === 'remove') {
+            for (let i = 0; i < total; i++) {
+                if (cur[i] !== 0 && isHit(i)) {
+                    idx.push(i);
+                    tgt.push(0);
+                }
+            }
+        } else {
+            // 'set': make selection match hit mask
+            for (let i = 0; i < total; i++) {
+                const hit = isHit(i) ? 1 : 0;
+                if (cur[i] !== hit) {
+                    idx.push(i);
+                    tgt.push(hit);
+                }
+            }
+        }
+
+        this.indices = Uint32Array.from(idx);
+        this.targets = Uint8Array.from(tgt);
+    }
+
+    do() {
+        const s = this.mesh.selectionState;
+        for (let i = 0; i < this.indices.length; i++) {
+            s[this.indices[i]] = this.targets[i];
+        }
+        this.mesh.updateSelection();
+    }
+
+    undo() {
+        const s = this.mesh.selectionState;
+        for (let i = 0; i < this.indices.length; i++) {
+            // each affected cell was the opposite of targets[i] before the op
+            s[this.indices[i]] = 1 - this.targets[i];
+        }
+        this.mesh.updateSelection();
+    }
+
+    destroy() {
+        this.mesh = null;
+        this.indices = null;
+        this.targets = null;
+    }
+}
+
 export {
     EditOp,
     SelectAllOp,
     SelectNoneOp,
     SelectInvertOp,
     SelectOp,
+    MeshSelectOp,
     HideSelectionOp,
     UnhideAllOp,
     DeleteSelectionOp,

@@ -93,6 +93,12 @@ const filePickerTypes: { [key: string]: FilePickerAcceptType } = {
         accept: {
             'application/zip': ['.zip']
         }
+    },
+    'glb': {
+        description: 'glTF Binary (Blender export)',
+        accept: {
+            'model/gltf-binary': ['.glb', '.gltf']
+        }
     }
 };
 
@@ -104,7 +110,9 @@ const allImportTypes = {
         'image/webp': ['.webp'],
         'application/json': ['.lcc'],
         'application/octet-stream': ['.bin'],
-        'text/plain': ['.txt']
+        'text/plain': ['.txt'],
+        'model/gltf-binary': ['.glb'],
+        'model/gltf+json': ['.gltf']
     }
 };
 
@@ -301,6 +309,24 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         }
     };
 
+    // import a single GLB/glTF mesh file
+    const importMesh = async (file: ImportFile) => {
+        try {
+            const contents = file.contents ?? (file.url ? await (await fetch(file.url)).blob() : null);
+            if (!contents) {
+                await showLoadError('No file contents available', file.filename);
+                return null;
+            }
+            const mesh = await scene.meshLoader.load(file.filename, contents);
+            await scene.add(mesh);
+            return mesh;
+        } catch (error) {
+            console.error('importMesh failed:', error, error?.stack);
+            await showLoadError(error.message ?? error, file.filename);
+            return null;
+        }
+    };
+
     // figure out what the set of files are (ply sequence, document, sog set, ply) and then import them
     const importFiles = async (files: ImportFile[], animationFrame = false) => {
         const filenames = files.map(f => f.filename.toLowerCase());
@@ -329,7 +355,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
             // check for unrecognized file types
             for (let i = 0; i < filenames.length; i++) {
                 const filename = filenames[i].toLowerCase();
-                if (['.ssproj', '.ply', '.splat', '.sog', '.webp', 'images.txt', '.json', '.ksplat', '.spz'].every(ext => !filename.endsWith(ext))) {
+                if (['.ssproj', '.ply', '.splat', '.sog', '.webp', 'images.txt', '.json', '.ksplat', '.spz', '.glb', '.gltf'].every(ext => !filename.endsWith(ext))) {
                     await showLoadError('Unrecognized file type', filename);
                     return;
                 }
@@ -346,6 +372,9 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                     // load gaussian splat model
                     const model = await importSplatModel([files[i]], animationFrame);
                     if (model) result.push(model);
+                } else if (['.glb', '.gltf'].some(ext => filename.endsWith(ext))) {
+                    // load Blender / glTF mesh
+                    await importMesh(files[i]);
                 } else if (filename.endsWith('images.txt')) {
                     // load colmap frames
                     await loadImagesTxt(files[i], events);
@@ -369,7 +398,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         fileSelector = document.createElement('input');
         fileSelector.setAttribute('id', 'file-selector');
         fileSelector.setAttribute('type', 'file');
-        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin,.txt,.ksplat,.spz');
+        fileSelector.setAttribute('accept', '.ply,.splat,meta.json,.json,.webp,.ssproj,.sog,.lcc,.bin,.txt,.ksplat,.spz,.glb,.gltf');
         fileSelector.setAttribute('multiple', 'true');
 
         fileSelector.onchange = () => {
@@ -435,6 +464,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                         filePickerTypes.lcc,
                         filePickerTypes.ksplat,
                         filePickerTypes.spz,
+                        filePickerTypes.glb,
                         filePickerTypes.indexTxt
                     ]
                 });

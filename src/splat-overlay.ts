@@ -77,7 +77,8 @@ class SplatOverlay extends Element {
         });
 
         scene.events.on('selection.changed', (selection: Splat) => {
-            if (selection) {
+            // overlay only applies to gsplat elements
+            if (selection && (selection as any).entity?.gsplat) {
                 this.attach(selection);
             } else {
                 this.detach();

@@ -14,6 +14,7 @@ import {
 } from 'playcanvas';
 
 import { AssetLoader } from './asset-loader';
+import { MeshLoader } from './mesh-loader';
 import { Camera } from './camera';
 import { CameraPoseGizmos } from './camera-pose-gizmos';
 import { CommandQueue } from './command-queue';
@@ -93,6 +94,7 @@ class Scene {
 
     dataProcessor: DataProcessor;
     assetLoader: AssetLoader;
+    meshLoader: MeshLoader;
     camera: Camera;
     cameraPoseGizmos: CameraPoseGizmos;
     splatOverlay: SplatOverlay;
@@ -211,6 +213,7 @@ class Scene {
 
         this.dataProcessor = new DataProcessor(this.app.graphicsDevice);
         this.assetLoader = new AssetLoader(this.app, events);
+        this.meshLoader = new MeshLoader(this.app, events);
 
         // create root entities
         this.contentRoot = new Entity('contentRoot');
@@ -248,6 +251,11 @@ class Scene {
         splats.forEach((splat) => {
             this.remove(splat);
             (splat as Splat).destroy();
+        });
+        const meshes = this.getElementsByType(ElementType.mesh);
+        meshes.forEach((mesh) => {
+            this.remove(mesh);
+            (mesh as any).destroy();
         });
     }
 

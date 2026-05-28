@@ -2,10 +2,11 @@ import { MemoryFileSystem } from '@playcanvas/splat-transform';
 import { Color, Mat4, path, Texture, Vec3, Vec4 } from 'playcanvas';
 
 import { EditHistory } from './edit-history';
-import { SelectAllOp, SelectNoneOp, SelectInvertOp, SelectOp, HideSelectionOp, UnhideAllOp, DeleteSelectionOp, ResetOp, MultiOp, AddSplatOp } from './edit-ops';
+import { SelectAllOp, SelectNoneOp, SelectInvertOp, SelectOp, MeshSelectOp, HideSelectionOp, UnhideAllOp, DeleteSelectionOp, ResetOp, MultiOp, AddSplatOp } from './edit-ops';
 import { Element, ElementType } from './element';
 import { Events } from './events';
 import { MappedReadFileSystem } from './io';
+import { Mesh } from './mesh';
 import { Scene } from './scene';
 import { Splat } from './splat';
 import { serializePly } from './splat-serialize';
@@ -29,7 +30,42 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
     // get the list of selected splats (currently limited to just a single one)
     const selectedSplats = () => {
         const selected = events.invoke('selection') as Splat;
-        return selected?.visible ? [selected] : [];
+        return selected?.visible && selected?.type === ElementType.splat ? [selected] : [];
+    };
+
+    // returns the currently-selected Mesh element, if any, for routing vertex-
+    // level selection operations through the same tools that act on splats.
+    const selectedMesh = (): Mesh | null => {
+        const selected = events.invoke('selection') as Element;
+        return selected?.type === ElementType.mesh && (selected as Mesh).visible ? selected as Mesh : null;
+    };
+
+    // project every mesh vertex through (viewProj * worldTransform) and write a
+    // 255/0 hit mask sized to mesh.totalVertexCount based on `predicate(ndcX, ndcY, ndcZ, vertexIndex, worldPos)`.
+    // `predicate` returning true means the vertex is a hit.
+    const projectMeshVertices = (
+        mesh: Mesh,
+        predicate: (nx: number, ny: number, nz: number, i: number, wx: number, wy: number, wz: number) => boolean
+    ): Uint8Array => {
+        mat.mul2((scene.camera.camera.camera as any)._viewProjMat, mesh.entity.getWorldTransform());
+        const worldXf = mesh.entity.getWorldTransform();
+        const pos = mesh.vertexPositionsLocal;
+        const total = mesh.totalVertexCount;
+        const hit = new Uint8Array(total);
+        const wp = new Vec3();
+        for (let i = 0; i < total; i++) {
+            const lx = pos[i * 3], ly = pos[i * 3 + 1], lz = pos[i * 3 + 2];
+            vec4.set(lx, ly, lz, 1);
+            mat.transformVec4(vec4, vec4);
+            if (vec4.w <= 0) continue;
+            const nx = vec4.x / vec4.w;
+            const ny = vec4.y / vec4.w;
+            const nz = vec4.z / vec4.w;
+            wp.set(lx, ly, lz);
+            worldXf.transformPoint(wp, wp);
+            if (predicate(nx, ny, nz, i, wp.x, wp.y, wp.z)) hit[i] = 255;
+        }
+        return hit;
     };
 
     let lastExportCursor = 0;
@@ -281,18 +317,36 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         selectedSplats().forEach((splat) => {
             events.fire('edit.add', new SelectAllOp(splat));
         });
+        const mesh = selectedMesh();
+        if (mesh) {
+            const all = new Uint8Array(mesh.totalVertexCount);
+            all.fill(255);
+            events.fire('edit.add', new MeshSelectOp(mesh, 'set', all));
+        }
     });
 
     events.on('select.none', () => {
         selectedSplats().forEach((splat) => {
             events.fire('edit.add', new SelectNoneOp(splat));
         });
+        const mesh = selectedMesh();
+        if (mesh) {
+            const none = new Uint8Array(mesh.totalVertexCount);
+            events.fire('edit.add', new MeshSelectOp(mesh, 'set', none));
+        }
     });
 
     events.on('select.invert', () => {
         selectedSplats().forEach((splat) => {
             events.fire('edit.add', new SelectInvertOp(splat));
         });
+        const mesh = selectedMesh();
+        if (mesh) {
+            const inverted = new Uint8Array(mesh.totalVertexCount);
+            const cur = mesh.selectionState;
+            for (let i = 0; i < cur.length; i++) inverted[i] = cur[i] === 0 ? 255 : 0;
+            events.fire('edit.add', new MeshSelectOp(mesh, 'set', inverted));
+        }
     });
 
     events.on('select.mask', (op: 'add'|'remove'|'set', mask: Uint8Array | Uint32Array) => {
@@ -321,6 +375,16 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 sphere: { x: sphere[0], y: sphere[1], z: sphere[2], radius: sphere[3] }
             });
         }
+        const mesh = selectedMesh();
+        if (mesh) {
+            const cx = sphere[0], cy = sphere[1], cz = sphere[2];
+            const r2 = sphere[3] * sphere[3];
+            const hit = projectMeshVertices(mesh, (_nx, _ny, _nz, _i, wx, wy, wz) => {
+                const dx = wx - cx, dy = wy - cy, dz = wz - cz;
+                return dx * dx + dy * dy + dz * dz <= r2;
+            });
+            events.fire('edit.add', new MeshSelectOp(mesh, op, hit));
+        }
     });
 
     events.on('select.byBox', async (op: 'add'|'remove'|'set', box: number[]) => {
@@ -328,6 +392,15 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
             await intersectCenters(splat, op, {
                 box: { x: box[0], y: box[1], z: box[2], lenx: box[3], leny: box[4], lenz: box[5] }
             });
+        }
+        const mesh = selectedMesh();
+        if (mesh) {
+            const x0 = box[0], y0 = box[1], z0 = box[2];
+            const x1 = x0 + box[3], y1 = y0 + box[4], z1 = z0 + box[5];
+            const hit = projectMeshVertices(mesh, (_nx, _ny, _nz, _i, wx, wy, wz) => {
+                return wx >= x0 && wx <= x1 && wy >= y0 && wy <= y1 && wz >= z0 && wz <= z1;
+            });
+            events.fire('edit.add', new MeshSelectOp(mesh, op, hit));
         }
     });
 
@@ -351,6 +424,21 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 const sortedIds = new Uint32Array(new Set(pick)).sort();
                 events.fire('edit.add', new SelectOp(splat, op, sortedIds));
             }
+        }
+
+        const mesh = selectedMesh();
+        if (mesh) {
+            // rect.{start,end} are in normalized 0..1 screen space
+            const rx0 = Math.min(rect.start.x, rect.end.x) * 2 - 1;
+            const rx1 = Math.max(rect.start.x, rect.end.x) * 2 - 1;
+            // editor rect is top-down (y=0 at top); ndc y is bottom-up
+            const ry0 = 1 - Math.max(rect.start.y, rect.end.y) * 2;
+            const ry1 = 1 - Math.min(rect.start.y, rect.end.y) * 2;
+            const hit = projectMeshVertices(mesh, (nx, ny, nz) => {
+                if (nz < -1 || nz > 1) return false;
+                return nx >= rx0 && nx <= rx1 && ny >= ry0 && ny <= ry1;
+            });
+            events.fire('edit.add', new MeshSelectOp(mesh, op, hit));
         }
     });
 
@@ -426,6 +514,26 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
                 const sortedIds = new Uint32Array(selected).sort();
                 events.fire('edit.add', new SelectOp(splat, op, sortedIds));
             }
+        }
+
+        // mesh path: sample the painted mask canvas at each vertex's projected
+        // screen position. independent of splat camera.mode since meshes don't
+        // have a rings/centers distinction.
+        const mesh = selectedMesh();
+        if (mesh) {
+            const maskImg = context.getImageData(0, 0, canvas.width, canvas.height);
+            const md = maskImg.data;
+            const mw = canvas.width;
+            const mh = canvas.height;
+            const hit = projectMeshVertices(mesh, (nx, ny, nz) => {
+                if (nz < -1 || nz > 1) return false;
+                // map NDC [-1,1] → mask canvas pixel (canvas y goes top→bottom)
+                const px = Math.floor((nx * 0.5 + 0.5) * mw);
+                const py = Math.floor((1 - (ny * 0.5 + 0.5)) * mh);
+                if (px < 0 || px >= mw || py < 0 || py >= mh) return false;
+                return md[(py * mw + px) * 4 + 3] === 255;
+            });
+            events.fire('edit.add', new MeshSelectOp(mesh, op, hit));
         }
     });
 

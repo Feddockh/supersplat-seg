@@ -22,24 +22,31 @@ const registerSelectionEvents = (events: Events, scene: Scene) => {
         return selection;
     });
 
+    const selectable = () => {
+        return [
+            ...scene.getElementsByType(ElementType.splat),
+            ...scene.getElementsByType(ElementType.mesh)
+        ] as Splat[];
+    };
+
     events.on('selection.next', () => {
-        const splats = scene.getElementsByType(ElementType.splat) as Splat[];
-        if (splats.length > 1) {
-            const idx = splats.indexOf(selection);
-            setSelection(splats[(idx + 1) % splats.length]);
+        const items = selectable();
+        if (items.length > 1) {
+            const idx = items.indexOf(selection);
+            setSelection(items[(idx + 1) % items.length]);
         }
     });
 
     events.on('scene.elementAdded', (element: Element) => {
-        if (element.type === ElementType.splat) {
+        if (element.type === ElementType.splat || element.type === ElementType.mesh) {
             setSelection(element as Splat);
         }
     });
 
     events.on('scene.elementRemoved', (element: Element) => {
         if (element === selection) {
-            const splats = scene.getElementsByType(ElementType.splat) as Splat[];
-            setSelection(splats.length === 1 ? null : splats.find(v => v !== element));
+            const items = selectable().filter(v => v !== element);
+            setSelection(items.length > 0 ? items[0] : null);
         }
     });
 

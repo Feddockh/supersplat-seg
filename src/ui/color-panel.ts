@@ -5,6 +5,7 @@ import { Events } from '../events';
 import { localize } from './localization';
 import { Tooltips } from './tooltips';
 import { SetSplatColorAdjustmentOp } from '../edit-ops';
+import { ElementType } from '../element';
 import { Splat } from '../splat';
 
 // pcui slider doesn't include start and end events
@@ -393,7 +394,9 @@ class ColorPanel extends Container {
             }
         });
 
-        events.on('selection.changed', (splat) => {
+        events.on('selection.changed', (element) => {
+            // color panel only applies to splats; treat non-splat selection as cleared
+            const splat = element?.type === ElementType.splat ? element as Splat : null;
             selected = splat;
             updateUIFromState(splat);
         });

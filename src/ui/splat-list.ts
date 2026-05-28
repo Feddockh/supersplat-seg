@@ -183,7 +183,7 @@ class SplatList extends Container {
         });
 
         events.on('scene.elementAdded', (element: Element) => {
-            if (element.type === ElementType.splat) {
+            if (element.type === ElementType.splat || element.type === ElementType.mesh) {
                 const splat = element as Splat;
                 const item = new SplatItem(splat.name, edit);
                 this.append(item);
@@ -212,7 +212,7 @@ class SplatList extends Container {
         });
 
         events.on('scene.elementRemoved', (element: Element) => {
-            if (element.type === ElementType.splat) {
+            if (element.type === ElementType.splat || element.type === ElementType.mesh) {
                 const splat = element as Splat;
                 const item = items.get(splat);
                 if (item) {

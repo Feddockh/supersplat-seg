@@ -1,8 +1,9 @@
 import { Vec3 } from 'playcanvas';
 
-import { SelectOp, SemanticLabelOp } from './edit-ops';
+import { MeshSelectOp, SelectOp, SemanticLabelOp } from './edit-ops';
 import { ElementType } from './element';
 import { Events } from './events';
+import { Mesh } from './mesh';
 import { Scene } from './scene';
 import { Splat } from './splat';
 import { State } from './splat-state';
@@ -126,6 +127,8 @@ class SemanticLabelManager {
         events.on('scene.elementAdded', (element) => {
             if (element.type === ElementType.splat) {
                 this.updateSplatPalette(element as Splat);
+            } else if (element.type === ElementType.mesh) {
+                this.updateMeshPalette(element as Mesh);
             }
         });
 
@@ -178,15 +181,11 @@ class SemanticLabelManager {
         return this.scene.getElementsByType(ElementType.splat) as Splat[];
     }
 
-    private changed() {
-        for (const splat of this.splats) {
-            this.updateSplatPalette(splat);
-        }
-        this.events.fire('semantic.changed');
-        this.scene.forceRender = true;
+    get meshes() {
+        return this.scene.getElementsByType(ElementType.mesh) as Mesh[];
     }
 
-    private updateSplatPalette(splat: Splat) {
+    private buildPalette() {
         const palette = new Uint8Array(64 * 4);
         for (const cls of this.classes.values()) {
             if (cls.id < 1 || cls.id > MAX_CLASSES) continue;
@@ -196,7 +195,27 @@ class SemanticLabelManager {
             palette[offset + 2] = Math.round(cls.color[2] * 255);
             palette[offset + 3] = cls.visible ? 255 : 0;
         }
-        splat.updateSemanticPalette(palette, this.overlayEnabled, this.overlayAlpha);
+        return palette;
+    }
+
+    private changed() {
+        const palette = this.buildPalette();
+        for (const splat of this.splats) {
+            splat.updateSemanticPalette(palette, this.overlayEnabled, this.overlayAlpha);
+        }
+        for (const mesh of this.meshes) {
+            mesh.updateSemanticPalette(palette, this.overlayEnabled, this.overlayAlpha);
+        }
+        this.events.fire('semantic.changed');
+        this.scene.forceRender = true;
+    }
+
+    private updateSplatPalette(splat: Splat) {
+        splat.updateSemanticPalette(this.buildPalette(), this.overlayEnabled, this.overlayAlpha);
+    }
+
+    private updateMeshPalette(mesh: Mesh) {
+        mesh.updateSemanticPalette(this.buildPalette(), this.overlayEnabled, this.overlayAlpha);
     }
 
     addClass(name = `Class ${this.nextClassId}`, color?: [number, number, number]) {
@@ -234,8 +253,8 @@ class SemanticLabelManager {
         if (!this.classes.has(id)) return;
         this.classes.delete(id);
 
-        for (const splat of this.splats) {
-            const semantic = splat.semanticData;
+        const clearOn = (target: { semanticData: Uint16Array, updateSemanticLabels(): void }) => {
+            const semantic = target.semanticData;
             const indices: number[] = [];
             const oldLabels: number[] = [];
             for (let i = 0; i < semantic.length; i++) {
@@ -246,13 +265,16 @@ class SemanticLabelManager {
             }
             if (indices.length > 0) {
                 this.events.fire('edit.add', new SemanticLabelOp({
-                    splat,
+                    splat: target,
                     indices: Uint32Array.from(indices),
                     oldLabels: Uint16Array.from(oldLabels),
                     newLabel: 0
                 }));
             }
-        }
+        };
+
+        for (const splat of this.splats) clearOn(splat);
+        for (const mesh of this.meshes) clearOn(mesh);
 
         if (this.activeClassId === id) {
             this.activeClassId = this.classes.keys().next().value ?? 0;
@@ -305,6 +327,11 @@ class SemanticLabelManager {
                 }));
             }
         }
+
+        for (const mesh of this.meshes) {
+            if (this.events.invoke('selection') !== mesh) continue;
+            this.assignMeshSelection(mesh, classId);
+        }
     }
 
     clearSelection() {
@@ -332,6 +359,36 @@ class SemanticLabelManager {
                 }));
             }
         }
+
+        for (const mesh of this.meshes) {
+            if (this.events.invoke('selection') !== mesh) continue;
+            this.assignMeshSelection(mesh, 0);
+        }
+    }
+
+    // walk the mesh's per-vertex selectionState and write `newLabel` into
+    // semanticData wherever a vertex is selected (and not already at that label).
+    private assignMeshSelection(mesh: Mesh, newLabel: number) {
+        const selection = mesh.selectionState;
+        const semantic = mesh.semanticData;
+        const indices: number[] = [];
+        const oldLabels: number[] = [];
+
+        for (let i = 0; i < selection.length; i++) {
+            if (selection[i] !== 0 && semantic[i] !== newLabel) {
+                indices.push(i);
+                oldLabels.push(semantic[i]);
+            }
+        }
+
+        if (indices.length > 0) {
+            this.events.fire('edit.add', new SemanticLabelOp({
+                splat: mesh,
+                indices: Uint32Array.from(indices),
+                oldLabels: Uint16Array.from(oldLabels),
+                newLabel
+            }));
+        }
     }
 
     selectClass(id: number) {
@@ -344,6 +401,15 @@ class SemanticLabelManager {
                 }
             }
             this.events.fire('edit.add', new SelectOp(splat, 'set', mask));
+        }
+
+        for (const mesh of this.meshes) {
+            const semantic = mesh.semanticData;
+            const mask = new Uint8Array(semantic.length);
+            for (let i = 0; i < semantic.length; i++) {
+                if (semantic[i] === id) mask[i] = 255;
+            }
+            this.events.fire('edit.add', new MeshSelectOp(mesh, 'set', mask));
         }
     }
 
@@ -387,6 +453,49 @@ class SemanticLabelManager {
                     sum.mulScalar(1 / count);
                     segments.push({
                         splat: splat.filename,
+                        classId: cls.id,
+                        className: cls.name,
+                        color: cls.color,
+                        clusterIndex: c,
+                        count,
+                        centroid: [sum.x, sum.y, sum.z]
+                    });
+                }
+            }
+        }
+
+        for (const mesh of this.meshes) {
+            const semantic = mesh.semanticData;
+            const localPos = mesh.vertexPositionsLocal;
+            const worldXf = mesh.worldTransform;
+
+            for (const cls of this.classes.values()) {
+                const pts: Vec3[] = [];
+                for (let i = 0; i < semantic.length; i++) {
+                    if (semantic[i] === cls.id) {
+                        tmp.set(localPos[i * 3], localPos[i * 3 + 1], localPos[i * 3 + 2]);
+                        worldXf.transformPoint(tmp, tmp);
+                        pts.push(tmp.clone());
+                    }
+                }
+
+                if (pts.length === 0) continue;
+
+                const clusterIds = dbscanCluster(pts, epsilon);
+                const numClusters = Math.max(...clusterIds) + 1;
+
+                for (let c = 0; c < numClusters; c++) {
+                    const sum = new Vec3();
+                    let count = 0;
+                    for (let i = 0; i < pts.length; i++) {
+                        if (clusterIds[i] === c) {
+                            sum.add(pts[i]);
+                            count++;
+                        }
+                    }
+                    sum.mulScalar(1 / count);
+                    segments.push({
+                        splat: mesh.name,
                         classId: cls.id,
                         className: cls.name,
                         color: cls.color,
