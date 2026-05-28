@@ -1,4 +1,4 @@
-import { Container, ContainerArgs, Label, NumericInput, VectorInput } from '@playcanvas/pcui';
+import { Button, Container, ContainerArgs, Label, NumericInput, VectorInput } from '@playcanvas/pcui';
 import { Quat, Vec3 } from 'playcanvas';
 
 import { Events } from '../events';
@@ -82,9 +82,37 @@ class Transform extends Container {
         scale.append(scaleLabel);
         scale.append(scaleInput);
 
+        // copy/paste buttons
+        const actions = new Container({
+            class: 'transform-row'
+        });
+
+        const copyButton = new Button({
+            class: 'transform-expand',
+            text: 'Copy',
+            enabled: false
+        });
+
+        const pasteButton = new Button({
+            class: 'transform-expand',
+            text: 'Paste',
+            enabled: false
+        });
+
+        const resetButton = new Button({
+            class: 'transform-expand',
+            text: 'Reset',
+            enabled: false
+        });
+
+        actions.append(copyButton);
+        actions.append(pasteButton);
+        actions.append(resetButton);
+
         this.append(position);
         this.append(rotation);
         this.append(scale);
+        this.append(actions);
 
         const toArray = (v: Vec3) => {
             return [v.x, v.y, v.z];
@@ -151,9 +179,69 @@ class Transform extends Container {
             input.on('slider:mouseup', mouseup);
         });
 
+        copyButton.on('click', async () => {
+            const payload = JSON.stringify({
+                position: positionVector.value,
+                rotation: rotationVector.value,
+                scale: scaleInput.value
+            });
+            try {
+                await navigator.clipboard.writeText(payload);
+            } catch (err) {
+                console.error('Failed to copy transform to clipboard', err);
+            }
+        });
+
+        pasteButton.on('click', async () => {
+            let data: { position: number[], rotation: number[], scale: number };
+            try {
+                const text = await navigator.clipboard.readText();
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error('Failed to paste transform from clipboard', err);
+                return;
+            }
+
+            if (!Array.isArray(data?.position) || data.position.length !== 3 ||
+                !Array.isArray(data?.rotation) || data.rotation.length !== 3 ||
+                typeof data?.scale !== 'number') {
+                console.error('Clipboard does not contain a valid transform');
+                return;
+            }
+
+            const pivot = events.invoke('pivot') as Pivot;
+            if (!pivot) return;
+
+            uiUpdating = true;
+            positionVector.value = data.position;
+            rotationVector.value = data.rotation;
+            scaleInput.value = data.scale;
+            uiUpdating = false;
+
+            pivot.start();
+            updatePivot(pivot);
+            pivot.end();
+        });
+
+        resetButton.on('click', () => {
+            const pivot = events.invoke('pivot') as Pivot;
+            if (!pivot) return;
+
+            uiUpdating = true;
+            positionVector.value = [0, 0, 0];
+            rotationVector.value = [0, 0, 0];
+            scaleInput.value = 1;
+            uiUpdating = false;
+
+            pivot.start();
+            updatePivot(pivot);
+            pivot.end();
+        });
+
         // toggle ui availability based on selection
         events.on('selection.changed', (selection) => {
             positionVector.enabled = rotationVector.enabled = scaleInput.enabled = !!selection;
+            copyButton.enabled = pasteButton.enabled = resetButton.enabled = !!selection;
         });
 
         events.on('pivot.placed', (pivot: Pivot) => {

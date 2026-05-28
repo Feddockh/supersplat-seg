@@ -61,3 +61,13 @@ $height: 22px;
         height: $height;
     }
 }
+
+#transform > div > div.pcui-button {
+    margin: 0px;
+    height: $height;
+    line-height: $height;
+
+    & + .pcui-button {
+        margin-left: 5px;
+    }
+}
