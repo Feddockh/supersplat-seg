@@ -83,6 +83,14 @@ Select Gaussians by size to prune tiny splats that contribute little to the rend
 
 ## Patch Notes
 
+### Fix: Y and Z coordinate flip in point selection display and centroid export when Z-Up is enabled
+
+When Z-Up mode was enabled, the point coordinates shown in the bottom-left and the centroid coordinates exported to JSON had Y and Z values flipped. The fix applies the z-up coordinate transformation (display space: X=right, Y=-up, Z=forward) consistently across all coordinate displays and exports:
+
+- [src/ui/editor.ts](src/ui/editor.ts): Apply z-up transformation to the cursor label (bottom-left point coordinates display).
+- [src/annotation-io.ts](src/annotation-io.ts): Apply z-up transformation to centroid coordinates only when exporting to JSON, keeping visual centroid markers in world space.
+- Centroid markers now display at correct positions when z-up is enabled.
+
 ### Fix: splats disappearing at certain camera angles in Z-Up mode
 
 When Z-Up was enabled, the scene's content root was rotated −90° on X but each splat's cached world-space AABB was not refreshed. PlayCanvas's per-mesh-instance frustum culling then read a stale AABB that no longer matched the splat's actual rendered position, so the entire splat got culled at orbit angles where the (wrong-place) AABB fell outside the view — making small offset splats (e.g. a tree separated from a larger world splat) appear to vanish as you orbited or zoomed in. Additionally, the saved Z-Up state was not restored on file reload.

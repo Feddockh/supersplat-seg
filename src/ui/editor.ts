@@ -86,10 +86,16 @@ class EditorUI {
         });
 
         let fullprecision = '';
+        let zUp = events.invoke('view.zUp') ?? false;
+        events.on('view.zUp', (v: boolean) => { zUp = v; });
+
+        const worldToDisplay = (wx: number, wy: number, wz: number) =>
+            zUp ? { x: wx, y: -wz, z: wy } : { x: wx, y: wy, z: wz };
 
         events.on('camera.focalPointPicked', (details: { position: Vec3 }) => {
-            cursorLabel.text = `${details.position.x.toFixed(2)}, ${details.position.y.toFixed(2)}, ${details.position.z.toFixed(2)}`;
-            fullprecision = `${details.position.x}, ${details.position.y}, ${details.position.z}`;
+            const disp = worldToDisplay(details.position.x, details.position.y, details.position.z);
+            cursorLabel.text = `${disp.x.toFixed(2)}, ${disp.y.toFixed(2)}, ${disp.z.toFixed(2)}`;
+            fullprecision = `${disp.x}, ${disp.y}, ${disp.z}`;
         });
 
         ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick'].forEach((eventName) => {

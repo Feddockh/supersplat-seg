@@ -118,9 +118,14 @@ class SemanticLabelManager {
     clusterEpsilon = 0.05;
     private nextClassId = 1;
 
+    private zUp = false;
+
     constructor(events: Events, scene: Scene) {
         this.events = events;
         this.scene = scene;
+
+        this.zUp = events.invoke('view.zUp') ?? false;
+        events.on('view.zUp', (v: boolean) => { this.zUp = v; });
 
         this.addClass('Class 1', [1, 0.35, 0.05]);
 
