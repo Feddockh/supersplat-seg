@@ -243,6 +243,12 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         if (value === zUp) return;
         zUp = value;
         scene.contentRoot.setLocalEulerAngles(zUp ? -90 : 0, 0, 0);
+        // contentRoot rotation changed: refresh each splat's worldBound so frustum
+        // culling and focus math use the current rotated AABB instead of a stale one
+        const splats = scene.getElementsByType(ElementType.splat) as Splat[];
+        for (const splat of splats) {
+            splat.move();
+        }
         scene.forceRender = true;
         events.fire('view.zUp', zUp);
         events.fire('camera.focus');
@@ -842,7 +848,8 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
             showBound: events.invoke('camera.bound'),
             showBoundDimensions: events.invoke('camera.boundDimensions'),
             showCameraPoses: events.invoke('camera.showPoses'),
-            flySpeed: events.invoke('camera.flySpeed')
+            flySpeed: events.invoke('camera.flySpeed'),
+            zUp
         };
     });
 
@@ -859,6 +866,9 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
         events.fire('camera.setBoundDimensions', docView.showBoundDimensions ?? false);
         events.fire('camera.setShowPoses', docView.showCameraPoses ?? false);
         events.fire('camera.setFlySpeed', docView.flySpeed);
+        if (typeof docView.zUp === 'boolean') {
+            events.fire('view.setZUp', docView.zUp);
+        }
     });
 };
 

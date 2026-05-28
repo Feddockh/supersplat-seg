@@ -70,6 +70,16 @@ Select Gaussians by size to prune tiny splats that contribute little to the rend
 
 > Opacity Select and Size Select are adapted from [GaussianSplatEditor](https://github.com/TimChen1383/GaussianSplatEditor) by [@TimChen1383](https://github.com/TimChen1383).
 
+## Patch Notes
+
+### Fix: splats disappearing at certain camera angles in Z-Up mode
+
+When Z-Up was enabled, the scene's content root was rotated −90° on X but each splat's cached world-space AABB was not refreshed. PlayCanvas's per-mesh-instance frustum culling then read a stale AABB that no longer matched the splat's actual rendered position, so the entire splat got culled at orbit angles where the (wrong-place) AABB fell outside the view — making small offset splats (e.g. a tree separated from a larger world splat) appear to vanish as you orbited or zoomed in. Additionally, the saved Z-Up state was not restored on file reload.
+
+The fix is in [src/editor.ts](src/editor.ts):
+- `setZUp` now calls `splat.move()` on every splat after rotating `contentRoot`, forcing each splat's `worldBound` to be recomputed against the new rotation.
+- `docSerialize.view` / `docDeserialize.view` now include `zUp` so the orientation round-trips through save/load.
+
 ## Local Development
 
 To initialize a local development environment for SuperSplat, ensure you have [Node.js](https://nodejs.org/) 18 or later installed. Follow these steps:
