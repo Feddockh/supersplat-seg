@@ -18,6 +18,17 @@ Assign semantic class labels to individual Gaussians and visualize them with a c
 
 Labels are stored in a per-Gaussian `semantic` channel and are preserved across undo/redo.
 
+### Mesh Import and Per-Vertex Annotation
+Import textured 3D meshes (GLB/glTF) from Blender and assign semantic labels to individual vertices — enabling annotation workflows on triangulated geometry alongside Gaussian splats.
+
+- Drag-and-drop a `.glb` or `.gltf` file onto the canvas. The mesh appears with its textures in the scene and is listed in the **Scene** panel alongside any loaded splats.
+- Use any selection tool (rect, brush, lasso, polygon, sphere, box) to select vertices on the mesh. Selected vertices highlight in yellow.
+- In the **Semantic Labels** panel, click **Assign Selection** to label the selected vertices with the active class. Labeled vertices display the class color tint via a translucent overlay drawn on top of the base texture.
+- All selection, labeling, and undo/redo operations work identically to Gaussian splats — class visibility toggles, **Select** by class, and **Export Centroids JSON** clusters labeled vertices and outputs their centroids.
+- Transform, rotate, and scale meshes with the same gizmos as splats.
+
+Meshes and splats can coexist in a single scene and share the same semantic class palette. Per-vertex labels are preserved in the project file.
+
 ### Splat Alignment
 Align two loaded Gaussian splat scenes by picking correspondence point pairs.
 
