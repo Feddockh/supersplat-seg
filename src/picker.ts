@@ -204,7 +204,9 @@ class Picker {
     }
 
     // Read normalized depth (0-1) at normalized screen position (0-1 range) (after prepareDepth)
-    async readDepth(x: number, y: number): Promise<number | null> {
+    // Samples a small neighborhood around the target pixel so that clicks landing
+    // in low-opacity gaps between splats fall back to the nearest valid pixel.
+    async readDepth(x: number, y: number, radius = 2): Promise<number | null> {
         if (!this.depthRenderTarget) {
             return null;
         }
@@ -216,26 +218,50 @@ class Picker {
         const px = Math.floor(x * rt.width);
         const py = Math.floor(y * rt.height);
 
+        // Read a (2*radius+1) square block centred on the target pixel, clamped to
+        // the render target bounds.
+        const x0 = Math.max(0, px - radius);
+        const y0 = Math.max(0, py - radius);
+        const x1 = Math.min(rt.width - 1, px + radius);
+        const y1 = Math.min(rt.height - 1, py + radius);
+        const bw = x1 - x0 + 1;
+        const bh = y1 - y0 + 1;
+
         // Flip Y for texture read on WebGL (texture origin is bottom-left)
-        const texY = this.device.isWebGL2 ? rt.height - py - 1 : py;
+        const texY = this.device.isWebGL2 ? rt.height - y1 - 1 : y0;
 
-        // Read the pixel using Texture.read() which handles RGBA16F format
-        const pixels = await colorBuffer.read(px, texY, 1, 1, { renderTarget: rt });
+        // Read the block using Texture.read() which handles RGBA16F format
+        const pixels = await colorBuffer.read(x0, texY, bw, bh, { renderTarget: rt });
 
-        // Convert half-float values to floats
-        // R channel: accumulated depth * alpha
-        // A channel: transmittance (1 - alpha)
-        const r = half2Float(pixels[0]);
-        const transmittance = half2Float(pixels[3]);
-        const alpha = 1 - transmittance;
+        // Walk the block and keep the valid sample closest to the target pixel.
+        // R channel: accumulated depth * alpha, A channel: transmittance (1 - alpha)
+        let bestDepth: number | null = null;
+        let bestDist = Infinity;
+        for (let j = 0; j < bh; j++) {
+            for (let i = 0; i < bw; i++) {
+                const idx = (j * bw + i) * 4;
+                const transmittance = half2Float(pixels[idx + 3]);
+                const alpha = 1 - transmittance;
 
-        // Check alpha (transmittance close to 1 means nothing visible)
-        if (alpha < 1e-6) {
-            return null;
+                // Skip near-transparent pixels (nothing visible here)
+                if (alpha < 1e-6) {
+                    continue;
+                }
+
+                // Map back to render-target pixel coords to measure distance.
+                // Account for the Y flip when computing the source row.
+                const srcX = x0 + i;
+                const srcY = this.device.isWebGL2 ? y1 - j : y0 + j;
+                const dist = (srcX - px) * (srcX - px) + (srcY - py) * (srcY - py);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestDepth = half2Float(pixels[idx]) / alpha;
+                }
+            }
         }
 
-        // Return normalized depth (0-1 range)
-        return r / alpha;
+        // Return normalized depth (0-1 range), or null if nothing was visible
+        return bestDepth;
     }
 
     // Clean up resources

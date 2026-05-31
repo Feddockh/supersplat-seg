@@ -32,6 +32,12 @@ class AlignmentTool {
         const markers = new Map<string, MarkerEntity>();
         let active = false;
         let clicked = false;
+        // pointer position at press time, used to distinguish a click from a drag
+        let downX = 0;
+        let downY = 0;
+        // allow a few pixels of drift between press and release before treating
+        // the gesture as a drag (orbit) rather than a click
+        const dragThreshold = 4;
 
         const markerRadius = () => Math.max(0.006, Math.min(0.05, scene.camera.sceneRadius * 0.012));
 
@@ -89,11 +95,17 @@ class AlignmentTool {
         const pointerdown = (e: PointerEvent) => {
             if (!clicked && isPrimary(e)) {
                 clicked = true;
+                downX = e.offsetX;
+                downY = e.offsetY;
             }
         };
 
-        const pointermove = () => {
-            clicked = false;
+        const pointermove = (e: PointerEvent) => {
+            // only cancel the pending click once the pointer has moved beyond the
+            // drag threshold, so tiny drift while pressing the button is tolerated
+            if (clicked && Math.hypot(e.offsetX - downX, e.offsetY - downY) > dragThreshold) {
+                clicked = false;
+            }
         };
 
         const pointerup = async (e: PointerEvent) => {
@@ -102,9 +114,17 @@ class AlignmentTool {
             }
             clicked = false;
 
+            // restrict picking to the splat for the active pick side, so points always
+            // land on the intended scan even where the two splats overlap on screen
+            const expectedSplat = manager.pickSide === 'source' ? manager.source : manager.target;
+            if (!expectedSplat) {
+                return;
+            }
+
             const result = await scene.camera.intersect(
                 e.offsetX / canvasContainer.dom.clientWidth,
-                e.offsetY / canvasContainer.dom.clientHeight
+                e.offsetY / canvasContainer.dom.clientHeight,
+                expectedSplat
             );
 
             if (result) {

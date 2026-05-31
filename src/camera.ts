@@ -672,10 +672,13 @@ class Camera extends Element {
         }
     }
 
-    // intersect the scene at the given normalized screen coordinate (0-1 range) using depth picking
-    async intersect(x: number, y: number) {
+    // intersect the scene at the given normalized screen coordinate (0-1 range) using depth picking.
+    // when restrictSplat is provided, only that splat is depth-tested, so the result always lands
+    // on the intended splat even when another splat is closer to the camera along the ray (e.g.
+    // picking alignment points on the rear of two overlapping scans).
+    async intersect(x: number, y: number, restrictSplat?: Splat) {
         const { scene } = this;
-        const splats = scene.getElementsByType(ElementType.splat);
+        const splats = restrictSplat ? [restrictSplat] : scene.getElementsByType(ElementType.splat);
 
         let closestDepth = Infinity;
         let closestSplat: Splat | null = null;
