@@ -422,6 +422,9 @@ class SemanticLabelManager {
         const epsilon = this.clusterEpsilon;
         const segments: SemanticCentroid[] = [];
 
+        const worldToDisplay = (wx: number, wy: number, wz: number) =>
+            this.zUp ? { x: wx, y: -wz, z: wy } : { x: wx, y: wy, z: wz };
+
         for (const splat of this.splats) {
             const semantic = splat.semanticData;
             const state = splat.splatData.getProp('state') as Uint8Array;
@@ -430,19 +433,22 @@ class SemanticLabelManager {
             const z = splat.splatData.getProp('z') as Float32Array;
 
             for (const cls of this.classes.values()) {
-                // Collect world-space positions for this class
+                // Collect positions for this class
                 const pts: Vec3[] = [];
+                const worldPts: Vec3[] = [];
                 for (let i = 0; i < semantic.length; i++) {
                     if (semantic[i] === cls.id && (state[i] & State.deleted) === 0) {
                         tmp.set(x[i], y[i], z[i]);
                         splat.worldTransform.transformPoint(tmp, tmp);
-                        pts.push(tmp.clone());
+                        worldPts.push(tmp.clone());
+                        const disp = worldToDisplay(tmp.x, tmp.y, tmp.z);
+                        pts.push(new Vec3(disp.x, disp.y, disp.z));
                     }
                 }
 
                 if (pts.length === 0) continue;
 
-                // Cluster with DBSCAN using true Euclidean epsilon-neighborhoods
+                // Cluster with DBSCAN using true Euclidean epsilon-neighborhoods in display space
                 const clusterIds = dbscanCluster(pts, epsilon);
                 const numClusters = Math.max(...clusterIds) + 1;
 
@@ -451,7 +457,7 @@ class SemanticLabelManager {
                     let count = 0;
                     for (let i = 0; i < pts.length; i++) {
                         if (clusterIds[i] === c) {
-                            sum.add(pts[i]);
+                            sum.add(worldPts[i]);
                             count++;
                         }
                     }
@@ -476,11 +482,14 @@ class SemanticLabelManager {
 
             for (const cls of this.classes.values()) {
                 const pts: Vec3[] = [];
+                const worldPts: Vec3[] = [];
                 for (let i = 0; i < semantic.length; i++) {
                     if (semantic[i] === cls.id) {
                         tmp.set(localPos[i * 3], localPos[i * 3 + 1], localPos[i * 3 + 2]);
                         worldXf.transformPoint(tmp, tmp);
-                        pts.push(tmp.clone());
+                        worldPts.push(tmp.clone());
+                        const disp = worldToDisplay(tmp.x, tmp.y, tmp.z);
+                        pts.push(new Vec3(disp.x, disp.y, disp.z));
                     }
                 }
 
@@ -494,7 +503,7 @@ class SemanticLabelManager {
                     let count = 0;
                     for (let i = 0; i < pts.length; i++) {
                         if (clusterIds[i] === c) {
-                            sum.add(pts[i]);
+                            sum.add(worldPts[i]);
                             count++;
                         }
                     }
