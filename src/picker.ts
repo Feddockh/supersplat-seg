@@ -97,8 +97,9 @@ class Picker {
 
         const { splatLayer } = this.scene;
 
-        // Hide non-selected elements
+        // Hide non-selected elements, saving previous enabled state so hidden splats stay hidden
         const splats = this.scene.getElementsByType(ElementType.splat) as Splat[];
+        const prevEnabled = splats.map(s => s.entity.enabled);
         splats.forEach((s) => {
             s.entity.enabled = s === splat;
         });
@@ -115,9 +116,9 @@ class Picker {
         this.renderPass.update(this.scene.camera.camera, this.scene.app.scene, [splatLayer], emptyMap, false);
         this.renderPass.render();
 
-        // Re-enable all splats
-        splats.forEach((s) => {
-            s.entity.enabled = true;
+        // Restore original enabled state for each splat
+        splats.forEach((s, i) => {
+            s.entity.enabled = prevEnabled[i];
         });
     }
 
@@ -180,8 +181,9 @@ class Picker {
         const { app, camera, splatLayer } = scene;
         const emptyMap = new Map();
 
-        // Hide non-selected elements
+        // Hide non-selected elements, saving previous enabled state so hidden splats stay hidden
         const splats = scene.getElementsByType(ElementType.splat) as Splat[];
+        const prevEnabled = splats.map(s => s.entity.enabled);
         splats.forEach((s) => {
             s.entity.enabled = s === splat;
         });
@@ -197,9 +199,9 @@ class Picker {
         this.renderPass.update(camera.camera, app.scene, [splatLayer], emptyMap, false);
         this.renderPass.render();
 
-        // Re-enable all splats
-        splats.forEach((s) => {
-            s.entity.enabled = true;
+        // Restore original enabled state for each splat
+        splats.forEach((s, i) => {
+            s.entity.enabled = prevEnabled[i];
         });
     }
 

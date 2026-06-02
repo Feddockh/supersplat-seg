@@ -678,7 +678,10 @@ class Camera extends Element {
     // picking alignment points on the rear of two overlapping scans).
     async intersect(x: number, y: number, restrictSplat?: Splat) {
         const { scene } = this;
-        const splats = restrictSplat ? [restrictSplat] : scene.getElementsByType(ElementType.splat);
+        const allSplats = scene.getElementsByType(ElementType.splat) as Splat[];
+        const splats = restrictSplat
+            ? (restrictSplat.visible ? [restrictSplat] : [])
+            : allSplats.filter(s => s.visible);
 
         let closestDepth = Infinity;
         let closestSplat: Splat | null = null;
