@@ -18,6 +18,8 @@ Assign semantic class labels to individual Gaussians and visualize them with a c
 
 Labels are stored in a per-Gaussian `semantic` channel and are preserved across undo/redo.
 
+![Semantic Labeling Preview](docs/images/annotation_preview_3.png)
+
 ### Mesh Import and Per-Vertex Annotation
 Import textured 3D meshes (GLB/glTF) from Blender and assign semantic labels to individual vertices — enabling annotation workflows on triangulated geometry alongside Gaussian splats.
 
@@ -35,6 +37,8 @@ Align two loaded Gaussian splat scenes by picking correspondence point pairs.
 - Load two splats and activate the **Align** tool from the bottom toolbar.
 - Pick source and target points on each splat to build correspondence pairs.
 - Click **Align** to compute and apply an ICP-based rigid transform to the source splat.
+
+![Splat Alignment Preview](docs/images/alignment_preview_1.png)
 
 ### Z-Up Coordinate Mode
 Toggle between Y-up (default) and Z-up coordinate systems for data captured in a Z-up frame.
@@ -56,6 +60,8 @@ Generate a smooth camera orbit as a dense set of keyframes in the timeline — a
 - Click **Clear** to remove all keyframes and start over.
 
 Both operations are fully undoable with Ctrl+Z.
+
+![Orbit Animation Preview](docs/images/tree_annotation_scene.gif)
 
 ### Camera Pose Overlay
 A compact HUD in the top-right corner, just below the axis gizmo, showing the camera's live position and orientation.
