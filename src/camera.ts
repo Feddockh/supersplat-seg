@@ -29,6 +29,7 @@ import {
 
 import { PointerController } from './controllers';
 import { Element, ElementType } from './element';
+import { Mesh } from './mesh';
 import { Picker } from './picker';
 import { Serializer } from './serializer';
 import { vertexShader, fragmentShader } from './shaders/blit-shader';
@@ -699,28 +700,49 @@ class Camera extends Element {
             }
         }
 
-        if (!closestSplat) {
-            return null;
-        }
-
-        // Convert normalized depth to linear depth
-        const linearDepth = closestDepth * (this.far - this.near) + this.near;
-
-        // Convert normalized coordinates to screen pixels for getRay
+        // Build the pick ray (needed for mesh intersection and splat position calculation)
         const screenX = x * scene.canvas.clientWidth;
         const screenY = y * scene.canvas.clientHeight;
-
-        // Calculate world position from ray and depth
         this.getRay(screenX, screenY, ray);
-        const t = linearDepth / ray.direction.dot(this.mainCamera.forward);
-        const position = new Vec3();
-        position.copy(ray.origin).add(vec.copy(ray.direction).mulScalar(t));
 
-        return {
-            splat: closestSplat,
-            position: position,
-            distance: t
-        };
+        // Compute splat world position and distance
+        let splatPosition: Vec3 | null = null;
+        let splatDistance = Infinity;
+        if (closestSplat) {
+            const linearDepth = closestDepth * (this.far - this.near) + this.near;
+            splatDistance = linearDepth / ray.direction.dot(this.mainCamera.forward);
+            splatPosition = new Vec3().copy(ray.origin).add(vec.copy(ray.direction).mulScalar(splatDistance));
+        }
+
+        // Test visible mesh bounding boxes (skip when restricted to a specific splat)
+        let meshPosition: Vec3 | null = null;
+        let meshDistance = Infinity;
+        if (!restrictSplat) {
+            const meshHitPoint = new Vec3();
+            for (const mesh of scene.getElementsByType(ElementType.mesh) as Mesh[]) {
+                if (!mesh.visible) continue;
+                const worldBound = mesh.worldBound;
+                if (worldBound && worldBound.intersectsRay(ray, meshHitPoint)) {
+                    const dist = ray.origin.distance(meshHitPoint);
+                    if (dist < meshDistance) {
+                        meshDistance = dist;
+                        meshPosition = meshHitPoint.clone();
+                    }
+                }
+            }
+        }
+
+        // Return the closer of splat or mesh hit
+        if (splatPosition && splatDistance <= meshDistance) {
+            return { splat: closestSplat, position: splatPosition, distance: splatDistance };
+        }
+        if (meshPosition) {
+            return { splat: null as unknown as Splat, position: meshPosition, distance: meshDistance };
+        }
+        if (splatPosition) {
+            return { splat: closestSplat, position: splatPosition, distance: splatDistance };
+        }
+        return null;
     }
 
     // intersect the scene at the normalized screen location (0-1 range) and focus the camera on this location

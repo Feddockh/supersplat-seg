@@ -35,7 +35,9 @@ class MeshLoader {
                 this.app.assets.load(asset);
             });
 
-            return new Mesh(asset, filename);
+            const mesh = new Mesh(asset, filename);
+            mesh.sourceBlob = blob;
+            return mesh;
         } finally {
             if (blobUrl) URL.revokeObjectURL(blobUrl);
             this.events.fire('stopSpinner');

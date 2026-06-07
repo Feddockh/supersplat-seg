@@ -2,6 +2,8 @@ import { ZipFileSystem, ZipReadFileSystem } from '@playcanvas/splat-transform';
 
 import { Events } from './events';
 import { BrowserFileSystem, BlobReadSource } from './io';
+import { ElementType } from './element';
+import { Mesh } from './mesh';
 import { recentFiles } from './recent-files';
 import { Scene } from './scene';
 import { Splat } from './splat';
@@ -114,6 +116,25 @@ const registerDocEvents = (scene: Scene, events: Events) => {
                 splat.docDeserialize(splatSettings);
             }
 
+            // run through each mesh and load it
+            if (Array.isArray(document.meshes)) {
+                for (let i = 0; i < document.meshes.length; ++i) {
+                    const filename = `mesh_${i}.glb`;
+                    const meshSettings = document.meshes[i];
+
+                    const meshSource = await zipFs.createSource(filename);
+                    const meshData = await meshSource.read().readAll();
+                    meshSource.close();
+
+                    const meshBlob = new Blob([meshData.buffer as ArrayBuffer], { type: 'model/gltf-binary' });
+                    const mesh = await scene.meshLoader.load(filename, meshBlob);
+
+                    await scene.add(mesh);
+
+                    mesh.docDeserialize(meshSettings);
+                }
+            }
+
             // FIXME: trigger scene bound calc in a better way
             const tmp = scene.bound;
             if (tmp === null) {
@@ -153,6 +174,7 @@ const registerDocEvents = (scene: Scene, events: Events) => {
 
         try {
             const splats = events.invoke('scene.allSplats') as Splat[];
+            const meshes = (scene.getElementsByType(ElementType.mesh) as Mesh[]).filter(m => m.sourceBlob !== null);
 
             const document = {
                 version: 0,
@@ -161,7 +183,8 @@ const registerDocEvents = (scene: Scene, events: Events) => {
                 poseSets: events.invoke('docSerialize.poseSets'),
                 timeline: events.invoke('docSerialize.timeline'),
                 semanticLabels: events.invoke('docSerialize.semanticLabels'),
-                splats: splats.map(s => s.docSerialize())
+                splats: splats.map(s => s.docSerialize()),
+                meshes: meshes.map(m => m.docSerialize())
             };
 
             const serializeSettings = {
@@ -186,6 +209,13 @@ const registerDocEvents = (scene: Scene, events: Events) => {
             // Write each splat as PLY
             for (let i = 0; i < splats.length; ++i) {
                 await serializePly([splats[i]], serializeSettings, zipFs, `splat_${i}.ply`);
+            }
+
+            // Write each mesh blob as GLB
+            for (let i = 0; i < meshes.length; ++i) {
+                const meshWriter = await zipFs.createWriter(`mesh_${i}.glb`);
+                await meshWriter.write(new Uint8Array(await meshes[i].sourceBlob.arrayBuffer()));
+                await meshWriter.close();
             }
 
             // Close zip (also closes underlying browser writer)

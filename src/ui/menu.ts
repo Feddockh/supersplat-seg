@@ -198,21 +198,6 @@ class Menu extends Container {
             icon: createSvg(sceneExport),
             subMenu: exportMenuPanel
         }, {
-            // separator
-        }, {
-            text: localize('menu.file.import-annotations', { ellipsis: true }),
-            icon: createSvg(sceneImport),
-            onSelect: async () => {
-                await events.invoke('annotation.import');
-            }
-        }, {
-            text: localize('menu.file.export-annotations', { ellipsis: true }),
-            icon: createSvg(sceneExport),
-            isEnabled: () => events.invoke('annotation.hasPoints'),
-            onSelect: async () => {
-                await events.invoke('annotation.export');
-            }
-        }, {
             text: localize('menu.file.publish', { ellipsis: true }),
             icon: createSvg(scenePublish),
             isEnabled: () => !events.invoke('scene.empty'),

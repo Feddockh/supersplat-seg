@@ -58,6 +58,7 @@ class Mesh extends Element {
 
     _name = '';
     _visible = true;
+    sourceBlob: Blob | null = null;
 
     constructor(asset: Asset, filename: string) {
         super(ElementType.mesh);
@@ -435,6 +436,36 @@ class Mesh extends Element {
                 result.set(vec, entity.getLocalRotation(), entity.getLocalScale());
                 break;
             }
+        }
+    }
+
+    docSerialize() {
+        const p = this.entity.getLocalPosition();
+        const r = this.entity.getLocalRotation();
+        const s = this.entity.getLocalScale();
+        return {
+            name: this.name,
+            visible: this.visible,
+            position: [p.x, p.y, p.z],
+            rotation: [r.x, r.y, r.z, r.w],
+            scale: [s.x, s.y, s.z]
+        };
+    }
+
+    docDeserialize(data: Record<string, unknown>) {
+        if (data.name !== undefined) this.name = data.name as string;
+        if (data.visible !== undefined) this.visible = data.visible as boolean;
+        if (Array.isArray(data.position)) {
+            const [x, y, z] = data.position as number[];
+            this.entity.setLocalPosition(x, y, z);
+        }
+        if (Array.isArray(data.rotation)) {
+            const [x, y, z, w] = data.rotation as number[];
+            this.entity.setLocalRotation(x, y, z, w);
+        }
+        if (Array.isArray(data.scale)) {
+            const [x, y, z] = data.scale as number[];
+            this.entity.setLocalScale(x, y, z);
         }
     }
 }

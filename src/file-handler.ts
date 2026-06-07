@@ -443,7 +443,8 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     });
 
     events.function('scene.empty', () => {
-        return getSplats().length === 0;
+        const hasMeshes = scene.getElementsByType(ElementType.mesh).length > 0;
+        return getSplats().length === 0 && !hasMeshes;
     });
 
     events.function('scene.import', async () => {
