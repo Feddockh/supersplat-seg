@@ -8,8 +8,10 @@ import {
     Mesh as PcMesh,
     MeshInstance,
     Quat,
+    Ray,
     SEMANTIC_COLOR,
     StandardMaterial,
+    Tri,
     TYPE_UINT8,
     Vec3
 } from 'playcanvas';
@@ -30,6 +32,7 @@ type MeshPart = {
     vertexStart: number;         // offset into Mesh.vertexPositionsLocal / semanticData
     vertexCount: number;
     colorBuffer: Uint8Array;     // RGBA, length = vertexCount * 4
+    indices: number[] | null;    // triangle indices (3 per tri); null = non-indexed
 };
 
 class Mesh extends Element {
@@ -142,6 +145,9 @@ class Mesh extends Element {
                 // overlay vertex stream starts fully transparent — base mesh shows through
                 const colorBuffer = new Uint8Array(vertexCount * 4);
 
+                const tmpIndices: number[] = [];
+                const indexCount = (m as any).getIndices(tmpIndices);
+
                 const part: MeshPart = {
                     mesh: m,
                     meshInstance: mi,
@@ -149,7 +155,8 @@ class Mesh extends Element {
                     renderComponent: render,
                     vertexStart: totalVerts,
                     vertexCount,
-                    colorBuffer
+                    colorBuffer,
+                    indices: indexCount > 0 ? tmpIndices.slice(0, indexCount) : null
                 };
 
                 this.parts.push(part);
@@ -437,6 +444,59 @@ class Mesh extends Element {
                 break;
             }
         }
+    }
+
+    rayIntersect(ray: Ray): { position: Vec3, distance: number } | null {
+        const worldBound = this.worldBound;
+        if (!worldBound || !worldBound.intersectsRay(ray)) return null;
+
+        const worldTransform = this.entity.getWorldTransform();
+        const invTransform = new Mat4().copy(worldTransform).invert();
+
+        const localRay = new Ray();
+        invTransform.transformPoint(ray.origin, localRay.origin);
+        invTransform.transformVector(ray.direction, localRay.direction);
+        localRay.direction.normalize();
+
+        const tri = new Tri();
+        const localHit = new Vec3();
+        const v0 = new Vec3(), v1 = new Vec3(), v2 = new Vec3();
+        const positions = this.vertexPositionsLocal;
+
+        let closestDist = Infinity;
+        let closestLocalHit: Vec3 | null = null;
+
+        for (const part of this.parts) {
+            const base = part.vertexStart;
+            const idx = part.indices;
+            const triCount = idx ? idx.length / 3 : Math.floor(part.vertexCount / 3);
+
+            for (let t = 0; t < triCount; t++) {
+                const i0 = base + (idx ? idx[t * 3]     : t * 3);
+                const i1 = base + (idx ? idx[t * 3 + 1] : t * 3 + 1);
+                const i2 = base + (idx ? idx[t * 3 + 2] : t * 3 + 2);
+
+                v0.set(positions[i0 * 3], positions[i0 * 3 + 1], positions[i0 * 3 + 2]);
+                v1.set(positions[i1 * 3], positions[i1 * 3 + 1], positions[i1 * 3 + 2]);
+                v2.set(positions[i2 * 3], positions[i2 * 3 + 1], positions[i2 * 3 + 2]);
+
+                tri.set(v0, v1, v2);
+                if (tri.intersectsRay(localRay, localHit)) {
+                    const worldHit = new Vec3();
+                    worldTransform.transformPoint(localHit, worldHit);
+                    const dist = ray.origin.distance(worldHit);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestLocalHit = localHit.clone();
+                    }
+                }
+            }
+        }
+
+        if (!closestLocalHit) return null;
+        const worldHit = new Vec3();
+        worldTransform.transformPoint(closestLocalHit, worldHit);
+        return { position: worldHit, distance: closestDist };
     }
 
     docSerialize() {

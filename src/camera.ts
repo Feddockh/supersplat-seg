@@ -714,20 +714,16 @@ class Camera extends Element {
             splatPosition = new Vec3().copy(ray.origin).add(vec.copy(ray.direction).mulScalar(splatDistance));
         }
 
-        // Test visible mesh bounding boxes (skip when restricted to a specific splat)
+        // Test visible meshes with triangle-level intersection (skip when restricted to a specific splat)
         let meshPosition: Vec3 | null = null;
         let meshDistance = Infinity;
         if (!restrictSplat) {
-            const meshHitPoint = new Vec3();
             for (const mesh of scene.getElementsByType(ElementType.mesh) as Mesh[]) {
                 if (!mesh.visible) continue;
-                const worldBound = mesh.worldBound;
-                if (worldBound && worldBound.intersectsRay(ray, meshHitPoint)) {
-                    const dist = ray.origin.distance(meshHitPoint);
-                    if (dist < meshDistance) {
-                        meshDistance = dist;
-                        meshPosition = meshHitPoint.clone();
-                    }
+                const hit = mesh.rayIntersect(ray);
+                if (hit && hit.distance < meshDistance) {
+                    meshDistance = hit.distance;
+                    meshPosition = hit.position;
                 }
             }
         }
