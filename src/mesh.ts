@@ -159,6 +159,12 @@ class Mesh extends Element {
                     indices: indexCount > 0 ? tmpIndices.slice(0, indexCount) : null
                 };
 
+                // Disable per-instance frustum culling. The camera is placed based on the
+                // scene bounding sphere, which guarantees the full model fits in the FOV.
+                // Per-instance sphere culling is too aggressive for multi-part meshes where
+                // canopy instances extend far off-center and get clipped at azim=0/180.
+                mi.cull = false;
+
                 this.parts.push(part);
                 collected.push({ part, localPositions });
                 totalVerts += vertexCount;
@@ -182,6 +188,36 @@ class Mesh extends Element {
     // its setter destroys the prior instances, nulling their mesh refs).
     private initVertexColorStreams() {
         for (const part of this.parts) {
+            // PlayCanvas's VertexIterator.writeData silently ignores writes to
+            // semantics not in the vertex buffer format. When a GLB mesh has no
+            // COLOR_0, setVertexStream(SEMANTIC_COLOR) is a no-op and the overlay
+            // MeshInstance is constructed without SHADERDEF_VCOLOR, causing the
+            // overlay to render solid white and opaque (hiding the base texture).
+            // Fix: if the mesh lacks SEMANTIC_COLOR, rebuild the vertex buffer by
+            // re-queuing all existing streams plus the new color stream, then
+            // setting _geometryData.recreate so update() creates a fresh buffer
+            // with the full format.
+            const vb = (part.mesh as any).vertexBuffer;
+            if (vb && !vb.format.hasColor) {
+                for (const element of vb.format.elements) {
+                    const data: number[] = [];
+                    const count = (part.mesh as any).getVertexStream(element.name, data);
+                    if (count > 0 && data.length > 0) {
+                        (part.mesh as any).setVertexStream(
+                            element.name, data,
+                            element.numComponents, part.vertexCount,
+                            element.dataType, element.normalize
+                        );
+                    }
+                }
+                // recreate=true destroys the index buffer as well as the vertex
+                // buffer, so we must re-queue the indices or the mesh renders unindexed.
+                if (part.indices) {
+                    (part.mesh as any).setIndices(part.indices);
+                }
+                (part.mesh as any)._geometryData.recreate = true;
+            }
+
             try {
                 (part.mesh as any).setVertexStream(SEMANTIC_COLOR, part.colorBuffer, 4, part.vertexCount, TYPE_UINT8, true);
                 part.mesh.update();
@@ -204,6 +240,7 @@ class Mesh extends Element {
             overlayMat.update();
 
             const overlay = new MeshInstance(part.mesh, overlayMat, part.meshInstance.node);
+            overlay.cull = false;
             overlay.castShadow = false;
             overlay.receiveShadow = false;
 
@@ -503,12 +540,20 @@ class Mesh extends Element {
         const p = this.entity.getLocalPosition();
         const r = this.entity.getLocalRotation();
         const s = this.entity.getLocalScale();
+
+        const bytes = new Uint8Array(this.semanticData.buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+
         return {
             name: this.name,
             visible: this.visible,
             position: [p.x, p.y, p.z],
             rotation: [r.x, r.y, r.z, r.w],
-            scale: [s.x, s.y, s.z]
+            scale: [s.x, s.y, s.z],
+            semanticData: btoa(binary)
         };
     }
 
@@ -526,6 +571,18 @@ class Mesh extends Element {
         if (Array.isArray(data.scale)) {
             const [x, y, z] = data.scale as number[];
             this.entity.setLocalScale(x, y, z);
+        }
+        if (typeof data.semanticData === 'string') {
+            const binary = atob(data.semanticData as string);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const decoded = new Uint16Array(bytes.buffer);
+            if (decoded.length === this.semanticData.length) {
+                this.semanticData.set(decoded);
+                this.updateSemanticLabels();
+            } else {
+                console.warn(`Mesh: semanticData length mismatch on load (expected ${this.semanticData.length}, got ${decoded.length})`);
+            }
         }
     }
 }
