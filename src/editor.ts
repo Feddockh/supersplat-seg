@@ -2,7 +2,7 @@ import { MemoryFileSystem } from '@playcanvas/splat-transform';
 import { Color, Mat4, path, Texture, Vec3, Vec4 } from 'playcanvas';
 
 import { EditHistory } from './edit-history';
-import { SelectAllOp, SelectNoneOp, SelectInvertOp, SelectOp, MeshSelectOp, HideSelectionOp, UnhideAllOp, DeleteSelectionOp, ResetOp, MultiOp, AddSplatOp } from './edit-ops';
+import { SelectAllOp, SelectNoneOp, SelectInvertOp, SelectOp, MeshSelectOp, HideSelectionOp, UnhideAllOp, DeleteSelectionOp, ResetOp, MultiOp, AddSplatOp, InflateGaussiansOp } from './edit-ops';
 import { Element, ElementType } from './element';
 import { Events } from './events';
 import { MappedReadFileSystem } from './io';
@@ -682,6 +682,13 @@ const registerEditorEvents = (events: Events, editHistory: EditHistory, scene: S
             }
             events.fire('edit.add', new SelectOp(splat, op, mask));
         }
+    });
+
+    events.on('transform.inflateGaussians', (multiplier: number) => {
+        const splat = events.invoke('selection') as Splat;
+        if (!splat || !(splat instanceof Splat)) return;
+        if (multiplier === 1) return;
+        events.fire('edit.add', new InflateGaussiansOp({ splat, multiplier }));
     });
 
     events.on('select.hide', () => {

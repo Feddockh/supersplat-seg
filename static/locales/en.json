@@ -46,6 +46,7 @@
     "panel.scene-manager.transform.position": "Position",
     "panel.scene-manager.transform.rotation": "Rotation",
     "panel.scene-manager.transform.scale": "Scale",
+    "panel.scene-manager.transform.gaussianSize": "GScale",
     "panel.colors": "Colors",
     "panel.colors.tint": "Tint",
     "panel.colors.temperature": "Temperature",

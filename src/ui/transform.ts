@@ -82,6 +82,28 @@ class Transform extends Container {
         scale.append(scaleLabel);
         scale.append(scaleInput);
 
+        // gaussian size
+        const gaussianSize = new Container({
+            class: 'transform-row'
+        });
+
+        const gaussianSizeLabel = new Label({
+            class: 'transform-label',
+            text: localize('panel.scene-manager.transform.gaussianSize')
+        });
+
+        const gaussianSizeInput = new NumericInput({
+            class: 'transform-expand',
+            precision: 3,
+            value: 1,
+            min: 0.01,
+            max: 100,
+            enabled: false
+        });
+
+        gaussianSize.append(gaussianSizeLabel);
+        gaussianSize.append(gaussianSizeInput);
+
         // copy/paste buttons
         const actions = new Container({
             class: 'transform-row'
@@ -112,6 +134,7 @@ class Transform extends Container {
         this.append(position);
         this.append(rotation);
         this.append(scale);
+        this.append(gaussianSize);
         this.append(actions);
 
         const toArray = (v: Vec3) => {
@@ -179,6 +202,16 @@ class Transform extends Container {
             input.on('slider:mouseup', mouseup);
         });
 
+        let lastGaussianScaleValue = 1;
+        gaussianSizeInput.on('change', () => {
+            const newValue = gaussianSizeInput.value;
+            if (newValue !== lastGaussianScaleValue && newValue > 0) {
+                const multiplier = newValue / lastGaussianScaleValue;
+                events.fire('transform.inflateGaussians', multiplier);
+                lastGaussianScaleValue = newValue;
+            }
+        });
+
         copyButton.on('click', async () => {
             const payload = JSON.stringify({
                 position: positionVector.value,
@@ -240,8 +273,12 @@ class Transform extends Container {
 
         // toggle ui availability based on selection
         events.on('selection.changed', (selection) => {
-            positionVector.enabled = rotationVector.enabled = scaleInput.enabled = !!selection;
+            positionVector.enabled = rotationVector.enabled = scaleInput.enabled = gaussianSizeInput.enabled = !!selection;
             copyButton.enabled = pasteButton.enabled = resetButton.enabled = !!selection;
+            if (selection) {
+                gaussianSizeInput.value = 1;
+                lastGaussianScaleValue = 1;
+            }
         });
 
         events.on('pivot.placed', (pivot: Pivot) => {

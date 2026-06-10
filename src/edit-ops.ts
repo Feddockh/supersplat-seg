@@ -1,4 +1,4 @@
-import { Color, Mat4 } from 'playcanvas';
+import { Color, Mat4, GSplatResource } from 'playcanvas';
 
 import { AnimTrack } from './anim-track';
 import { IndexRanges, sortedPredicate } from './index-ranges';
@@ -317,6 +317,63 @@ class SplatsTransformOp {
     }
 }
 
+class InflateGaussiansOp {
+    name = 'inflateGaussians';
+    splat: Splat;
+    multiplier: number;
+    oldScale0: Float32Array;
+    oldScale1: Float32Array;
+    oldScale2: Float32Array;
+
+    constructor(options: { splat: Splat, multiplier: number }) {
+        this.splat = options.splat;
+        this.multiplier = options.multiplier;
+        const s0 = options.splat.splatData.getProp('scale_0') as Float32Array;
+        const s1 = options.splat.splatData.getProp('scale_1') as Float32Array;
+        const s2 = options.splat.splatData.getProp('scale_2') as Float32Array;
+        this.oldScale0 = s0.slice();
+        this.oldScale1 = s1.slice();
+        this.oldScale2 = s2.slice();
+    }
+
+    do() {
+        const { splat, multiplier } = this;
+        const s0 = splat.splatData.getProp('scale_0') as Float32Array;
+        const s1 = splat.splatData.getProp('scale_1') as Float32Array;
+        const s2 = splat.splatData.getProp('scale_2') as Float32Array;
+        const state = splat.splatData.getProp('state') as Uint8Array;
+        for (let i = 0; i < splat.splatData.numSplats; i++) {
+            if ((state[i] & State.deleted) === 0) {
+                s0[i] = Math.log(Math.exp(s0[i]) * multiplier);
+                s1[i] = Math.log(Math.exp(s1[i]) * multiplier);
+                s2[i] = Math.log(Math.exp(s2[i]) * multiplier);
+            }
+        }
+        this._upload();
+    }
+
+    undo() {
+        const { splat } = this;
+        (splat.splatData.getProp('scale_0') as Float32Array).set(this.oldScale0);
+        (splat.splatData.getProp('scale_1') as Float32Array).set(this.oldScale1);
+        (splat.splatData.getProp('scale_2') as Float32Array).set(this.oldScale2);
+        this._upload();
+    }
+
+    private _upload() {
+        const resource = this.splat.entity.gsplat.instance.resource as GSplatResource;
+        resource.updateTransformData(this.splat.splatData);
+        this.splat.scene.forceRender = true;
+    }
+
+    destroy() {
+        this.splat = null;
+        this.oldScale0 = null;
+        this.oldScale1 = null;
+        this.oldScale2 = null;
+    }
+}
+
 class PlacePivotOp {
     name = 'setPivot';
     pivot: Pivot;
@@ -566,6 +623,7 @@ export {
     EntityTransformOp,
     SemanticLabelOp,
     SplatsTransformOp,
+    InflateGaussiansOp,
     PlacePivotOp,
     ColorAdjustment,
     SetSplatColorAdjustmentOp,
